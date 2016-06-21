@@ -19,7 +19,6 @@ import numpy as np
 import argparse
 import glob
 import time
-import pickle
 from matplotlib import pyplot as plt
 
 from search import Searcher
@@ -99,9 +98,6 @@ class Matcher(object):
             image = cv2.imread(imagePath)
             kp, des = desc.detectAndCompute(image, None)
             index[imagePath] = (kp, des)
-
-        f = open(filename, 'wb')
-        pickle.dump(index, f)
 
         return index
 
