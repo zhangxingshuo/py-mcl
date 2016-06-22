@@ -120,14 +120,26 @@ def illustrateProb(circle, arrowsL, probsL):
 
     for circle_ind in range(len(probsL)):
         num_matches, list_of_probs = probsL[circle_ind]
-        diffProb = max(list_of_probs) - min(list_of_probs)
+        # diffProb = max(list_of_probs) - min(list_of_probs)
+        maxProb = max(list_of_probs)
         num_probs = len(list_of_probs)
         this_circles_arrows = arrowsL[circle_ind]
         circle[circle_ind].setColor(((num_matches/ totalMatches)*255, (num_matches/ totalMatches)*255,
                                     (num_matches/ totalMatches)*255))
         for j in range(num_probs ):
             this_prob = list_of_probs[j]
-            color = (this_prob/diffProb * 255, 50, 50)
+            blue = 0
+            green = 0
+            red = 0
+            if this_prob >= 0.05:
+                red = this_prob/maxProb * 255
+                green = this_prob/maxProb * 255
+                blue = (1-this_prob/maxProb) * 255 
+            else:
+                red = 0
+                green = 0
+                blue = 255 * this_prob/maxProb
+            color = (blue, green, red)
             mult = (num_matches/ totalMatches) * this_prob * 20
             setArrow(this_circles_arrows, j, 1, color, mult)
 
@@ -147,6 +159,14 @@ def readProb(filename):
         counter += 1
     return probDict
 
+def readBestGuess(filename):
+    '''this function reads the list of best guesses of the robot's position at every position'''
+    file = open(filename, 'r')
+    content = file.read().split('\n')[:-1]
+    content = list(map(int, content))
+    bestGuesses = [[content[x], content[x+1]] for x in range(len(content) - 1 ) [::2]    ]
+    return bestGuesses
+
 def readCommand(filename):
     '''this function reads the command list from the robot'''
     file = open(filename, 'r')
@@ -156,24 +176,28 @@ def readCommand(filename):
         commandDict[data[:4]] = str(data[-1])
     return commandDict
 
+def readCoord(filename):
+    file = open(filename, 'r')
+    content = file.read().split('\n')[:-1]
+    coordinates = [list(map(int, coord.split(','))) for coord in content]
+    return coordinates
+
 def Laplacian(imagePath):
     ''' this function calcualte the blurriness factor'''
     img = cv2.imread(imagePath, 0)
     var = cv2.Laplacian(img, cv2.CV_64F).var()
     return var
+    
 
 
 # Initiate Screen
 img = np.zeros((540, 960, 3), np.uint8)
-cv2.namedWindow('GUI')
-
-res1 = 320
-res2 = 240
+cv2.namedWindow('GUI')  
 
 # Initiating Circles and Matches
-circle1 = Circle(50, 200, 200, 'spot_one', [150, 150, 150])
-circle2 = Circle(50, 400, 200, 'spot_two', [150, 150, 150])
-circle3 = Circle(50, 600, 200, 'spot_three', [150, 150, 150])
+circle1 = Circle(50, 141, 221, 'spot_one', [150, 150, 150])
+circle2 = Circle(50, 304, 207, 'spot_two', [150, 150, 150])
+circle3 = Circle(50, 498, 196, 'spot_three', [150, 150, 150])
 circles = [circle1, circle2, circle3]
 
 # Initiating Arrows
@@ -187,14 +211,15 @@ method = 'SURF'
 previousProbs = [[0, [0] * 25 ], [0,[0] * 25 ] , [0,[0] * 25]]
 commandList = readCommand('commands.txt')
 probDict = readProb('out.txt')
-
+# coordinates = readCoord('coord.txt')
+bestGuess = readBestGuess('bestGuess.txt')
 
 # Outputting the Probability
 
 
 for imagePath in glob.glob('cam1_img' + '/*.jpg'):
         # Initiating views
-        img = np.zeros((540,960,3), np.uint8)
+        img = np.zeros((480,640,3), np.uint8)
         novelView = cv2.imread(imagePath)
         groundTruth = cv2.imread(imagePath.replace('cam1_img', 'cam2_img'))
 
@@ -202,18 +227,49 @@ for imagePath in glob.glob('cam1_img' + '/*.jpg'):
         # Read matching data
         p = probDict[imagePath.replace('cam1_img/', '').replace('.jpg', '')]
         
+        # Read the actual coordinates of the robot
+
+
         # Accounting for Blur factor 
         blurFactor = Laplacian(imagePath)
         illustrateProb(circles, Arrows, p)
 
+        # Illustrate the position of the robot
+        # center = tuple(coordinates[int(imagePath.replace('cam1_img/', '').replace('.jpg', ''))][:2])
+        # cv2.circle(img, center, 5, (0,0,255), -1)
+
+        # Illustrate the orientation
+        # or_point = tuple(coordinates[int(imagePath.replace('cam1_img/', '').replace('.jpg', ''))][2:])
+        
+        # Best circle:
+        # bestCircle = circles[bestGuesses[int(imagePath.replace('cam1_img/', '').replace('.jpg', ''))][0]][:]
+        # bestCircle.setColor((255,255,255))
+        # bestCircle.setSize(10)
+
+        bestCircleIndex = bestGuess[int(imagePath.replace('cam1_img/', '').replace('.jpg', ''))][0]
+        bestArrowIndex = bestGuess[int(imagePath.replace('cam1_img/', '').replace('.jpg', ''))][1]
+        # Best arrow:
+        bestArrow = Arrows[bestCircleIndex][bestArrowIndex]
+        bestArrow.setColor((255,255, 0))
+        bestArrow.setLength(2)
+        bestArrow.setSize(5)
         # Drawing Circles
         drawCircle(circles)
         drawArrows(arrows1)
         drawArrows(arrows2)
         drawArrows(arrows3)
-        cv2.putText(img, imagePath, (500,400), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255),2)
-        cv2.putText(img, commandList[imagePath.replace('.jpg', '').replace('cam1_img/', '')], (500, 500), cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 2)
-        cv2.putText(img, str(blurFactor), (500, 100), cv2.FONT_HERSHEY_COMPLEX, 1, (0,0,255), 2)
+        cv2.putText(img, imagePath, (100,400), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255),2)
+        cv2.putText(img, commandList[imagePath.replace('.jpg', '').replace('cam1_img/', '')], (100, 500), cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 2)
+        cv2.putText(img, str(blurFactor), (100, 100), cv2.FONT_HERSHEY_COMPLEX, 1, (0,0,255), 2)
+
+        # Draw actual position
+        # cv2.arrowedLine(img, (center[0], center[1] - 50), (or_point[0], or_point[1] - 50), (0,255,0), 3)
+        # cv2.circle(img, (center[0], center[1] - 50), 5, (0,0,255), -1)
+
+        # Draw best Guess
+         # Best circle:
+
+
         cv2.imwrite('visual/' + imagePath.replace('cam1_img/', ''), img)
         cv2.imshow('Visualization', img)
         cv2.imshow('Ground Truth', groundTruth)
