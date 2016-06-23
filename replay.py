@@ -15,7 +15,9 @@ def readCoord(filename):
     coordinates = [list(map(int, coord.split(','))) for coord in content]
     return coordinates
 
-# coordinates = readCoord('coord.txt')
+coordinates = readCoord('coord.txt')
+maxImg = len(coordinates)
+
 while True:
     filename = str(currentIndex).zfill(4)
     visual = cv2.imread('visual/' + filename + ".jpg")
@@ -38,7 +40,7 @@ while True:
     cv2.imshow('Visual Representation', visual)
     cv2.imshow('Novel', novel)
     k = cv2.waitKey(0) & 0xFF
-    if k == ord('d') and currentIndex <= 203:
+    if k == ord('d') and currentIndex <= maxImg-2:
         currentIndex += 1
     if k == ord('a') and currentIndex >= 1:
         currentIndex -= 1
