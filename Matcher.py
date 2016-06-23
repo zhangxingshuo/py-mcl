@@ -34,8 +34,7 @@ class Matcher(object):
         self.image = cv2.resize(self.image, (self.w, self.h))
         self.data = directory
         self.alg = algorithm
-        if index:
-            self.index = index
+        self.index = index
 
     def createIndex(self):
         '''
@@ -152,8 +151,11 @@ class Matcher(object):
         surf = cv2.xfeatures2d.SURF_create()
 
         kp1, des1 = surf.detectAndCompute(self.image, None)
-        # kp2, des2 = surf.detectAndCompute(training, None)
-        kp2, des2 = self.index[imagePath]
+        if not self.index:
+            training = cv2.imread(imagePath)
+            kp2, des2 = surf.detectAndCompute(training, None)
+        else:
+            kp2, des2 = self.index[imagePath]
 
         FLANN_INDEX_KDTREE = 0
         index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
@@ -242,6 +244,8 @@ class Matcher(object):
         sorted_matches = sorted(matches, key=lambda x: x[1])
 
         totalMatches = sum(list(map(lambda x: x[1], matches)))
+        if totalMatches == 0:
+            totalMatches = 1
 
         for j in range(1,6):
             (imageName, score) = sorted_matches[-j]
@@ -267,4 +271,4 @@ if __name__ == '__main__':
 
     print(__doc__)
 
-    Matcher(args['query'], args['dataset'], args['algorithm']).run()
+    # Matcher(args['query'], args['dataset'], args['algorithm']).run()

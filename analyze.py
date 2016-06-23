@@ -2,6 +2,7 @@ import cv2
 import numpy as np 
 import math
 import glob
+import time
 
 from Matcher import Matcher 
 
@@ -139,6 +140,7 @@ class analyzer(object):
 
     def createBlurP(self):
         ''' This function generates a list of probabilities after accounting for the blurriness factor'''
+        start = time.time()
         self.createIndex()
         blurP = []
         previousProbs = [[1, [1/75] * 25 ], [1,[1/75] * 25 ] , [1,[1/75] * 25]]
@@ -175,6 +177,10 @@ class analyzer(object):
         self.blurP = blurP
         self.writeProb(self.blurP, 'out.txt', 'w')
         self.writeProb(self.bestGuess, 'bestGuess.txt', 'w')
+        end = time.time()
+
+        print('Time elapsed: %0.3f' % (end-start))
+
     def accountCommand(self, command, previousP):
         '''this funciton accounts for the command robot is given at the moment'''
         # Left

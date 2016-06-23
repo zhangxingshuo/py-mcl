@@ -211,7 +211,7 @@ method = 'SURF'
 previousProbs = [[0, [0] * 25 ], [0,[0] * 25 ] , [0,[0] * 25]]
 commandList = readCommand('commands.txt')
 probDict = readProb('out.txt')
-# coordinates = readCoord('coord.txt')
+coordinates = readCoord('coord.txt')
 bestGuess = readBestGuess('bestGuess.txt')
 
 # Outputting the Probability
@@ -235,11 +235,10 @@ for imagePath in glob.glob('cam1_img' + '/*.jpg'):
         illustrateProb(circles, Arrows, p)
 
         # Illustrate the position of the robot
-        # center = tuple(coordinates[int(imagePath.replace('cam1_img/', '').replace('.jpg', ''))][:2])
-        # cv2.circle(img, center, 5, (0,0,255), -1)
+        center = tuple(coordinates[int(imagePath.replace('cam1_img/', '').replace('.jpg', ''))][:2])
 
         # Illustrate the orientation
-        # or_point = tuple(coordinates[int(imagePath.replace('cam1_img/', '').replace('.jpg', ''))][2:])
+        or_point = tuple(coordinates[int(imagePath.replace('cam1_img/', '').replace('.jpg', ''))][2:])
         
         # Best circle:
         # bestCircle = circles[bestGuesses[int(imagePath.replace('cam1_img/', '').replace('.jpg', ''))][0]][:]
@@ -263,8 +262,8 @@ for imagePath in glob.glob('cam1_img' + '/*.jpg'):
         cv2.putText(img, str(blurFactor), (100, 100), cv2.FONT_HERSHEY_COMPLEX, 1, (0,0,255), 2)
 
         # Draw actual position
-        # cv2.arrowedLine(img, (center[0], center[1] - 50), (or_point[0], or_point[1] - 50), (0,255,0), 3)
-        # cv2.circle(img, (center[0], center[1] - 50), 5, (0,0,255), -1)
+        cv2.arrowedLine(img, (center[0], center[1] - 50), (or_point[0], or_point[1] - 50), (0,255,0), 3)
+        cv2.circle(img, (center[0], center[1] - 50), 5, (0,0,255), -1)
 
         # Draw best Guess
          # Best circle:
