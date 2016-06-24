@@ -215,7 +215,7 @@ class analyzer(object):
         self.writeCoord('coord.txt','w')
         end = time.time()
 
-        print('Time elapsed: %0.3f' % (end-start))
+        print('Time elapsed: %0.1f' % (end-start))
 
     def accountCommand(self, command, previousP):
         '''this funciton accounts for the command robot is given at the moment'''

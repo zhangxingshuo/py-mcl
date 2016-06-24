@@ -56,7 +56,7 @@ class Matcher(object):
     ### Color-Based Matching ###
     ############################
 
-    def createHistogram(image, bins=[8, 8, 8]):
+    def createHistogram(self, image, bins=[8, 8, 8]):
         '''
         Creates a flattened 3D histogram.
         '''
@@ -69,40 +69,44 @@ class Matcher(object):
         '''
         Creates dictionary with keys as image names and histograms as values.
         '''
-        print("Indexing: " + self.data + "...")
+        # print("Indexing: " + self.data + "...")
         index = {}
 
         for imagePath in glob.glob(self.data + "/*.jpg"):
             filename = imagePath[imagePath.rfind("/") + 1:]
             image = cv2.imread(imagePath)
-            print('\t%s' % imagePath)
+            # print('\t%s' % imagePath)
             features = self.createHistogram(image)
             index[filename] = features
 
         return index
 
-    def colorSearch(self, max_matches=5):
+    def colorSearch(self, max_matches=10):
         '''
         Searches query image against index and returns the specified number of matches.
         Results are in the format (chi-squared distance, image name).
         '''
-        self.index = self.createColorIndex()
+        start = time.time()
+        self.colorIndex = self.createColorIndex()
 
         # image = cv2.imread(self.image)
         # print("Querying: " + self.image + " ...")
-        searcher = Searcher(self.index)
+        searcher = Searcher(self.colorIndex)
         queryFeatures = self.createHistogram(self.image)
 
         results = searcher.search(queryFeatures)[:max_matches]
 
-        print("Matches found:")
-        for j in range(len(results)):
-            (score, imageName) = results[j]
-            print("\t%d. %s : %.3f" % (j+1, imageName, score))
+        # print("Matches found:")
+        # for j in range(len(results)):
+        #     (score, imageName) = results[j]
+        #     print("\t%d. %s : %.3f" % (j+1, imageName, score))
 
-        return results
+        end = time.time()
+        # print('Time elapsed: %0.2f s' % (end-start))
 
-        
+        return list(map(lambda x: x[1], results))
+
+
 
     def createFeatureIndex(self):
         '''
@@ -249,6 +253,7 @@ class Matcher(object):
         # start = time.time()
         # print('%s matching...' % self.alg)
         # self.index = self.createFeatureIndex()
+
         matches = []
         for i in range(0, 375, 15):
             imagePath = self.data + '/angle' + str(i).zfill(3) + '.jpg'
@@ -261,7 +266,7 @@ class Matcher(object):
                 numMatches = self.ORBMatch(imagePath)
             # print("\tFound %s matches" % numMatches)
             matches.append((imagePath, numMatches))
-
+            
         sorted_matches = sorted(matches, key=lambda x: x[1])
 
         totalMatches = sum(list(map(lambda x: x[1], matches)))
