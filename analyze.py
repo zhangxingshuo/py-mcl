@@ -106,9 +106,16 @@ class analyzer(object):
 
     def createIndex(self):
         ''' This function creates indexes of feature '''
-        self.index1 = Matcher('query.jpg','spot_one', self.method, None, self.res1, self.res2).createFeatureIndex('one_index.p')
-        self.index2 = Matcher('query.jpg','spot_two', self.method, None, self.res1, self.res2).createFeatureIndex('two_index.p')
-        self.index3 = Matcher('query.jpg','spot_three', self.method, None, self.res1, self.res2).createFeatureIndex('three_index.p')
+        matcher = Matcher(self.method, width=self.res1, height=self.res2)
+        matcher.setDirectory('spot_one')
+        self.index1 = matcher.createFeatureIndex()
+        matcher.setDirectory('spot_two')
+        self.index2 = matcher.createFeatureIndex()
+        matcher.setDirectory('spot_three')
+        self.index3 = matcher.createFeatureIndex()
+        # self.index1 = Matcher('query.jpg','spot_one', self.method, None, self.res1, self.res2).createFeatureIndex()
+        # self.index2 = Matcher('query.jpg','spot_two', self.method, None, self.res1, self.res2).createFeatureIndex()
+        # self.index3 = Matcher('query.jpg','spot_three', self.method, None, self.res1, self.res2).createFeatureIndex()
 
     def readCommand(self, filename):
         '''this function reads the command list from the robot'''
@@ -123,13 +130,27 @@ class analyzer(object):
         ''' This function generates a list of raw probabilities directly from image matching'''
         self.createIndex()
         p = []
+        matcher = Matcher(self.method, width=self.res1, height=self.res2)
         for imagePath in glob.glob('cam1_img' + '/*.jpg')[:5]:
-             totalMatches1, results1, __ = Matcher(imagePath, 'spot_one', self.method, self.index1, self.res1, self.res2).run()
-             totalMatches2, results2, __ = Matcher(imagePath, 'spot_two', self.method, self.index2, self.res1, self.res2).run()
-             totalMatches3, results3, __ = Matcher(imagePath, 'spot_three', self.method, self.index3, self.res1, self.res2).run()
-             p.extend([[totalMatches1, results1], [totalMatches2, results2], [totalMatches3, results3]])
-             # print(p)
-             # cv2.waitKey(0)        
+            matcher.setQuery(imagePath)
+
+            matcher.setDirectory('spot_one')
+            matcher.setIndex(self.index1)
+            totalMatches1, results1, _ = matcher.run()
+
+            matcher.setDirectory('spot_two')
+            matcher.setIndex(self.index2)
+            totalMatches2, results2, _ = matcher.run()
+
+            matcher.setDirectory('spot_three')
+            matcher.setIndex(self.index3)
+            totalMatches3, results3, _ = matcher.run()
+            # totalMatches1, results1, __ = Matcher(imagePath, 'spot_one', self.method, self.index1, self.res1, self.res2).run()
+            # totalMatches2, results2, __ = Matcher(imagePath, 'spot_two', self.method, self.index2, self.res1, self.res2).run()
+            # totalMatches3, results3, __ = Matcher(imagePath, 'spot_three', self.method, self.index3, self.res1, self.res2).run()
+            p.extend([[totalMatches1, results1], [totalMatches2, results2], [totalMatches3, results3]])
+            # print(p)
+            # cv2.waitKey(0)        
         self.rawP = p
 
     def Laplacian(self, imagePath):
@@ -144,39 +165,54 @@ class analyzer(object):
         self.createIndex()
         blurP = []
         previousProbs = [[1, [1/75] * 25 ], [1,[1/75] * 25 ] , [1,[1/75] * 25]]
+        matcher = Matcher(self.method, width=self.res1, height=self.res2)
         for imagePath in glob.glob('cam1_img' + '/*.jpg'):
-             p = []
-             totalMatches1, results1, __ = Matcher(imagePath, 'spot_one', self.method, self.index1, self.res1, self.res2).run()
-             totalMatches2, results2, __ = Matcher(imagePath, 'spot_two', self.method, self.index2, self.res1, self.res2).run()
-             totalMatches3, results3, __ = Matcher(imagePath, 'spot_three', self.method, self.index3, self.res1, self.res2).run()
-             p.extend([[totalMatches1, results1], [totalMatches2, results2], [totalMatches3, results3]])
-            
-             # Reading Blur
-             blurFactor = self.Laplacian(imagePath)
-             # Reading Command
-             command = self.commands[imagePath.replace('cam1_img/', '').replace('.jpg', '')]
+            p = []
+            matcher.setQuery(imagePath)
 
-             # Account for Action
-             actionAccount = self.accountCommand(command, previousProbs)
+            matcher.setDirectory('spot_one')
+            matcher.setIndex(self.index1)
+            totalMatches1, results1, _ = matcher.run()
 
-             # Adjusting for Action
-             adjusted = self.prevWeight(actionAccount, p)
+            matcher.setDirectory('spot_two')
+            matcher.setIndex(self.index2)
+            totalMatches2, results2, _ = matcher.run()
 
-             # Adjusting for Blur
-             adjusted = self.probUpdate(actionAccount, adjusted, blurFactor)
+            matcher.setDirectory('spot_three')
+            matcher.setIndex(self.index3)
+            totalMatches3, results3, _ = matcher.run()
+            # totalMatches1, results1, __ = Matcher(imagePath, 'spot_one', self.method, self.index1, self.res1, self.res2).run()
+            # totalMatches2, results2, __ = Matcher(imagePath, 'spot_two', self.method, self.index2, self.res1, self.res2).run()
+            # totalMatches3, results3, __ = Matcher(imagePath, 'spot_three', self.method, self.index3, self.res1, self.res2).run()
+            p.extend([[totalMatches1, results1], [totalMatches2, results2], [totalMatches3, results3]])
 
-             # Getting best guess
-             # this will get the max of the first variable
-             bestCircleIndex = adjusted.index(max(adjusted[0], adjusted[1], adjusted[2]))
-             bestAngleIndex = adjusted[bestCircleIndex][1].index(max(adjusted[bestCircleIndex][1]))
-             self.bestGuess.extend([[bestCircleIndex, bestAngleIndex]])
-             blurP.extend(adjusted)
-             previousProbs = adjusted
-             self.rawP.extend(p)
-             print(imagePath)
+            # Reading Blur
+            blurFactor = self.Laplacian(imagePath)
+            # Reading Command
+            command = self.commands[imagePath.replace('cam1_img/', '').replace('.jpg', '')]
+
+            # Account for Action
+            actionAccount = self.accountCommand(command, previousProbs)
+
+            # Adjusting for Action
+            adjusted = self.prevWeight(actionAccount, p)
+
+            # Adjusting for Blur
+            adjusted = self.probUpdate(actionAccount, adjusted, blurFactor)
+
+            # Getting best guess
+            # this will get the max of the first variable
+            bestCircleIndex = adjusted.index(max(adjusted[0], adjusted[1], adjusted[2]))
+            bestAngleIndex = adjusted[bestCircleIndex][1].index(max(adjusted[bestCircleIndex][1]))
+            self.bestGuess.extend([[bestCircleIndex, bestAngleIndex]])
+            blurP.extend(adjusted)
+            previousProbs = adjusted
+            self.rawP.extend(p)
+            print(imagePath)
         self.blurP = blurP
         self.writeProb(self.blurP, 'out.txt', 'w')
         self.writeProb(self.bestGuess, 'bestGuess.txt', 'w')
+        self.writeCoord('coord.txt','w')
         end = time.time()
 
         print('Time elapsed: %0.3f' % (end-start))
@@ -203,26 +239,30 @@ class analyzer(object):
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
         # Find mask that matches 
-        mask = cv2.inRange(hsv, np.array((0., 100., 100.)), np.array((180., 255., 255.)))
-        mask = cv2.erode(mask, None, iterations=2)
-        mask = cv2.dilate(mask, None, iterations=2)
+        green_mask = cv2.inRange(hsv, np.array((50., 30., 0.)), np.array((100., 255., 255.)))
+        green_mask = cv2.erode(green_mask, None, iterations=2)
+        green_mask = cv2.dilate(green_mask, None, iterations=2)
 
-        cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2]
-        c = max(cnts, key=cv2.contourArea)
+        green_cnts = cv2.findContours(green_mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2]
+        green_c = max(green_cnts, key=cv2.contourArea)
 
         # fit an ellipse and use its orientation to gain info about the robot
-        ellipse = cv2.fitEllipse(c)
+        green_ellipse = cv2.fitEllipse(green_c)
 
         # This is the position of the robot
-        center = (int(ellipse[0][0]), int(ellipse[0][1]))
+        green_center = (int(green_ellipse[0][0]), int(green_ellipse[0][1]))
 
-        # This is the orientation of the robot (the point, 20 pixels away from the center)
-        or_angle = ellipse[2]
-        pt2_x = int(round(center[0] + 30 * math.sin(-math.pi/180 * or_angle), 0))
-        pt2_y = int(round(center[1] + 30 * math.cos(-math.pi/180 * or_angle), 0))
-        pt2 = (pt2_x, pt2_y)
+        red_mask = cv2.inRange(hsv, np.array((0., 100., 100.)), np.array((80., 255., 255.)))
+        red_mask = cv2.erode(red_mask, None, iterations=2)
+        red_mask = cv2.erode(red_mask, None, iterations=2)
 
-        return center, pt2
+        red_cnts = cv2.findContours(red_mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2]
+        red_c = max(red_cnts, key=cv2.contourArea)
+
+        red_ellipse = cv2.fitEllipse(red_c)
+        red_center = (int(red_ellipse[0][0]), int(red_ellipse[0][1]))
+
+        return green_center, red_center
 
     def writeCoord(self, filename, mode):
         '''this function writes out the coordinate of the robot to a txt file'''

@@ -26,14 +26,25 @@ from pano import Panorama
 
 class Matcher(object):
 
-    def __init__(self, queryPath, directory, algorithm, index=None, width=800, height=600):
-        self.image = cv2.imread(queryPath)
-        self.image = cv2.bilateralFilter(self.image, 9, 75, 75)
+    def __init__(self, algorithm, index=None, width=800, height=600):
+        # self.image = cv2.imread(queryPath)
+        # self.image = cv2.bilateralFilter(self.image, 9, 75, 75)
         self.w = width
         self.h = height
-        self.image = cv2.resize(self.image, (self.w, self.h))
-        self.data = directory
+        # self.image = cv2.resize(self.image, (self.w, self.h))
+        # self.data = directory
         self.alg = algorithm
+        self.index = index
+
+    def setQuery(self, imagePath):
+        self.image = cv2.imread(imagePath)
+        self.image = cv2.bilateralFilter(self.image, 9, 75, 75)
+        self.image = cv2.resize(self.image, (self.w, self.h))
+
+    def setDirectory(self, directory):
+        self.data = directory
+
+    def setIndex(self, index):
         self.index = index
 
     def createIndex(self):
@@ -83,7 +94,7 @@ class Matcher(object):
 
         return results
 
-    def createFeatureIndex(self, filename):
+    def createFeatureIndex(self):
         '''
         Creates a dictionary with keys as image paths and values as keypoints and descriptors
         '''
@@ -225,20 +236,20 @@ class Matcher(object):
         Panorama(self.data, 100, 100, angle).write(self.data + '_panorama.jpg')
 
     def run(self):
-        start = time.time()
-        print('%s matching...' % self.alg)
+        # start = time.time()
+        # print('%s matching...' % self.alg)
         # self.index = self.createFeatureIndex()
         matches = []
         for i in range(0, 375, 15):
             imagePath = self.data + '/angle' + str(i).zfill(3) + '.jpg'
-            print('\tMatching %s ...' % imagePath)
+            # print('\tMatching %s ...' % imagePath)
             if self.alg == 'SIFT':
                 numMatches = self.SIFTMatch(imagePath)
             elif self.alg == 'SURF':
                 numMatches = self.SURFMatch(imagePath)
             else:
                 numMatches = self.ORBMatch(imagePath)
-            print("\tFound %s matches" % numMatches)
+            # print("\tFound %s matches" % numMatches)
             matches.append((imagePath, numMatches))
 
         sorted_matches = sorted(matches, key=lambda x: x[1])
@@ -247,15 +258,15 @@ class Matcher(object):
         if totalMatches == 0:
             totalMatches = 1
 
-        for j in range(1,6):
-            (imageName, score) = sorted_matches[-j]
-            print("%d. %s : %0.3f" % (j, imageName, score / totalMatches))
+        # for j in range(1,6):
+        #     (imageName, score) = sorted_matches[-j]
+        #     print("%d. %s : %0.3f" % (j, imageName, score / totalMatches))
 
-        print("Found %d total matches" % totalMatches)
+        # print("Found %d total matches" % totalMatches)
 
-        end = time.time()
+        # end = time.time()
 
-        print('Time elapsed: %0.1f s' % (end-start))
+        # print('Time elapsed: %0.1f s' % (end-start))
         
         return totalMatches, list(map(lambda x:x[1]/totalMatches, matches)), sorted_matches[-1]
 
