@@ -26,6 +26,10 @@ from pano import Panorama
 
 class Matcher(object):
 
+    ######################
+    ### Initialization ###
+    ######################
+
     def __init__(self, algorithm, index=None, width=800, height=600):
         # self.image = cv2.imread(queryPath)
         # self.image = cv2.bilateralFilter(self.image, 9, 75, 75)
@@ -47,20 +51,24 @@ class Matcher(object):
     def setIndex(self, index):
         self.index = index
 
-    def createIndex(self):
+
+    ############################
+    ### Color-Based Matching ###
+    ############################
+
+    def createHistogram(image, bins=[8, 8, 8]):
+        '''
+        Creates a flattened 3D histogram.
+        '''
+
+        hist = cv2.calcHist([image], [0, 1, 2], None, bins, [0, 256, 0, 256, 0, 256])
+        hist = cv2.normalize(hist, hist, 0, 255, cv2.NORM_MINMAX)
+        return hist.flatten()
+
+    def createColorIndex(self):
         '''
         Creates dictionary with keys as image names and histograms as values.
         '''
-
-        def createHistogram(image, bins=[8, 8, 8]):
-            '''
-            Creates a flattened 3D histogram.
-            '''
-
-            hist = cv2.calcHist([image], [0, 1, 2], None, bins, [0, 256, 0, 256, 0, 256])
-            hist = cv2.normalize(hist, hist, 0, 255, cv2.NORM_MINMAX)
-            return hist.flatten()
-
         print("Indexing: " + self.data + "...")
         index = {}
 
@@ -68,7 +76,7 @@ class Matcher(object):
             filename = imagePath[imagePath.rfind("/") + 1:]
             image = cv2.imread(imagePath)
             print('\t%s' % imagePath)
-            features = createHistogram(image)
+            features = self.createHistogram(image)
             index[filename] = features
 
         return index
@@ -78,12 +86,12 @@ class Matcher(object):
         Searches query image against index and returns the specified number of matches.
         Results are in the format (chi-squared distance, image name).
         '''
-        self.index = self.createIndex()
+        self.index = self.createColorIndex()
 
-        image = cv2.imread(self.image)
-        print("Querying: " + self.image + " ...")
+        # image = cv2.imread(self.image)
+        # print("Querying: " + self.image + " ...")
         searcher = Searcher(self.index)
-        queryFeatures = self.createHistogram(image)
+        queryFeatures = self.createHistogram(self.image)
 
         results = searcher.search(queryFeatures)[:max_matches]
 
@@ -93,6 +101,8 @@ class Matcher(object):
             print("\t%d. %s : %.3f" % (j+1, imageName, score))
 
         return results
+
+        
 
     def createFeatureIndex(self):
         '''
@@ -271,14 +281,14 @@ class Matcher(object):
         return totalMatches, list(map(lambda x:x[1]/totalMatches, matches)), sorted_matches[-1]
 
 if __name__ == '__main__':
-    ap = argparse.ArgumentParser()
-    ap.add_argument('-q', '--query', required=True,
-        help='Path to query image')
-    ap.add_argument('-d', '--dataset', required=True,
-        help='Path to directory of training images')
-    ap.add_argument('-a', '--algorithm', required=True,
-        help='Algorithm to use for matching')
-    args = vars(ap.parse_args())
+    # ap = argparse.ArgumentParser()
+    # ap.add_argument('-q', '--query', required=True,
+    #     help='Path to query image')
+    # ap.add_argument('-d', '--dataset', required=True,
+    #     help='Path to directory of training images')
+    # ap.add_argument('-a', '--algorithm', required=True,
+    #     help='Algorithm to use for matching')
+    # args = vars(ap.parse_args())
 
     print(__doc__)
 
