@@ -51,6 +51,9 @@ class Matcher(object):
     def setIndex(self, index):
         self.index = index
 
+    def setColorIndex(self, colorIndex):
+        self.colorIndex = colorIndex
+
 
     ############################
     ### Color-Based Matching ###
@@ -81,30 +84,25 @@ class Matcher(object):
 
         return index
 
-    def colorSearch(self, max_matches=10):
+    def colorSearch(self):
         '''
         Searches query image against index and returns the specified number of matches.
         Results are in the format (chi-squared distance, image name).
         '''
-        start = time.time()
-        self.colorIndex = self.createColorIndex()
 
         # image = cv2.imread(self.image)
         # print("Querying: " + self.image + " ...")
         searcher = Searcher(self.colorIndex)
         queryFeatures = self.createHistogram(self.image)
 
-        results = searcher.search(queryFeatures)[:max_matches]
+        results = searcher.search(queryFeatures)
 
         # print("Matches found:")
         # for j in range(len(results)):
         #     (score, imageName) = results[j]
         #     print("\t%d. %s : %.3f" % (j+1, imageName, score))
 
-        end = time.time()
-        # print('Time elapsed: %0.2f s' % (end-start))
-
-        return list(map(lambda x: x[1], results))
+        return results
 
 
 
@@ -253,25 +251,36 @@ class Matcher(object):
         # start = time.time()
         # print('%s matching...' % self.alg)
         # self.index = self.createFeatureIndex()
+        
+        if self.alg != 'Color':
+            matches = []
+            for i in range(0, 375, 15):
+                imagePath = self.data + '/angle' + str(i).zfill(3) + '.jpg'
+                # print('\tMatching %s ...' % imagePath)
+                if self.alg == 'SIFT':
+                    numMatches = self.SIFTMatch(imagePath)
+                elif self.alg == 'SURF':
+                    numMatches = self.SURFMatch(imagePath)
+                else:
+                    numMatches = self.ORBMatch(imagePath)
+                # print("\tFound %s matches" % numMatches)
+                matches.append((imagePath, numMatches))
 
-        matches = []
-        for i in range(0, 375, 15):
-            imagePath = self.data + '/angle' + str(i).zfill(3) + '.jpg'
-            # print('\tMatching %s ...' % imagePath)
-            if self.alg == 'SIFT':
-                numMatches = self.SIFTMatch(imagePath)
-            elif self.alg == 'SURF':
-                numMatches = self.SURFMatch(imagePath)
-            else:
-                numMatches = self.ORBMatch(imagePath)
-            # print("\tFound %s matches" % numMatches)
-            matches.append((imagePath, numMatches))
-            
+            totalMatches = sum(list(map(lambda x: x[1], matches)))
+            if totalMatches == 0:
+                totalMatches = 1
+
+        else:
+
+            results = self.colorSearch()
+            totalChiSquared = sum(list(map(lambda x: x[0], results)))
+            totalMatches = 300000./totalChiSquared
+            rawProbs = list(map(lambda x: (self.data + '/' + x[1], 200./x[0]), results)) # invert chi-squared
+            totalProb = sum(list(map(lambda x: x[1], rawProbs)))
+            rawMatches = list(map(lambda x: (x[0], x[1]/totalProb * totalMatches), rawProbs)) # normalize probabilities
+            matches = sorted(rawMatches, key=lambda x: int(x[0].replace('.jpg','').replace(self.data+'/angle','')))
+
         sorted_matches = sorted(matches, key=lambda x: x[1])
-
-        totalMatches = sum(list(map(lambda x: x[1], matches)))
-        if totalMatches == 0:
-            totalMatches = 1
 
         # for j in range(1,6):
         #     (imageName, score) = sorted_matches[-j]
