@@ -8,16 +8,15 @@ from Matcher import Matcher
 
 class analyzer(object):
 
-    def __init__(self, method, resolution1, resolution2):
+    def __init__(self, method, width, height):
         self.index1, self.index2, self.index3 = [], [], []
         self.method = method
-        self.res1 = resolution1
-        self.res2 = resolution2
+        self.w = width
+        self.h = height
         self.rawP = []
         self.blurP = []
         self.commands = self.readCommand('commands.txt')
         self.bestGuess = []
-        # self.pGen = []
         #res1 = 320
         #res2 = 240
 
@@ -106,7 +105,7 @@ class analyzer(object):
 
     def createIndex(self):
         ''' This function creates indexes of feature '''
-        matcher = Matcher(self.method, width=self.res1, height=self.res2)
+        matcher = Matcher(self.method, width=self.w, height=self.h)
         matcher.setDirectory('spot_one')
         self.index1 = matcher.createFeatureIndex()
         matcher.setDirectory('spot_two')
@@ -130,7 +129,7 @@ class analyzer(object):
         ''' This function generates a list of raw probabilities directly from image matching'''
         self.createIndex()
         p = []
-        matcher = Matcher(self.method, width=self.res1, height=self.res2)
+        matcher = Matcher(self.method, width=self.w, height=self.h)
         for imagePath in glob.glob('cam1_img' + '/*.jpg')[:5]:
             matcher.setQuery(imagePath)
 
@@ -165,7 +164,7 @@ class analyzer(object):
         self.createIndex()
         blurP = []
         previousProbs = [[1, [1/75] * 25 ], [1,[1/75] * 25 ] , [1,[1/75] * 25]]
-        matcher = Matcher(self.method, width=self.res1, height=self.res2)
+        matcher = Matcher(self.method, width=self.w, height=self.h)
         for imagePath in glob.glob('cam1_img' + '/*.jpg'):
             p = []
             matcher.setQuery(imagePath)
@@ -209,6 +208,7 @@ class analyzer(object):
             previousProbs = adjusted
             self.rawP.extend(p)
             print(imagePath)
+
         self.blurP = blurP
         self.writeProb(self.blurP, 'out.txt', 'w')
         self.writeProb(self.bestGuess, 'bestGuess.txt', 'w')
