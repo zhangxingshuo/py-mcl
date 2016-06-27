@@ -128,9 +128,10 @@ class analyzer(object):
     def createRawP(self):
         ''' This function generates a list of raw probabilities directly from image matching'''
         self.createIndex()
+        start = time.time()
         p = []
         matcher = Matcher(self.method, width=self.w, height=self.h)
-        for imagePath in glob.glob('cam1_img' + '/*.jpg')[:5]:
+        for imagePath in glob.glob('cam1_img' + '/*.jpg'):
             matcher.setQuery(imagePath)
 
             matcher.setDirectory('spot_one')
@@ -150,7 +151,78 @@ class analyzer(object):
             p.extend([[totalMatches1, results1], [totalMatches2, results2], [totalMatches3, results3]])
             # print(p)
             # cv2.waitKey(0)        
+            print(imagePath)
         self.rawP = p
+        self.writeProb(p, 'rawP.txt', 'w')
+
+        end = time.time()
+        print('Time elapsed: %0.1f' % (end-start))
+
+    def processRaw(self):
+        '''this function processed the raw function'''
+        previousProbs = [[1, [1/75] * 25 ], [1,[1/75] * 25 ] , [1,[1/75] * 25]]
+        start = time.time()
+        # matcher = Matcher(self.method, width=self.w, height=self.h)
+        probDict = self.readProb('rawP.txt')
+        blurP = []
+        for imagePath in glob.glob('cam1_img' + '/*.jpg'):
+            p = probDict[imagePath.replace('cam1_img/', '').replace('.jpg', '')]
+                        # Reading Blur
+            blurFactor = self.Laplacian(imagePath)
+
+
+############Everything##################################################################
+            # Reading Command
+            command = self.commands[imagePath.replace('cam1_img/', '').replace('.jpg', '')]
+
+            # Account for Command
+            actionAccount = self.accountCommand(command, previousProbs)
+
+            # Adjusting for Command
+            adjusted = self.prevWeight(actionAccount, p)
+
+            # Adjusting for Blur
+            adjusted = self.probUpdate(actionAccount, adjusted, blurFactor)
+
+############Motion Only##################################################################
+            # # Reading Command
+            # command = self.commands[imagePath.replace('cam1_img/', '').replace('.jpg', '')]
+
+            # # Account for Command
+            # actionAccount = self.accountCommand(command, previousProbs)
+
+            # # Adjusting for Command
+            # adjusted = self.prevWeight(actionAccount, p)
+
+
+#############Blur Only #####################################################################
+            # Only Adjusting for blur
+            # adjusted = self.probUpdate(previousProbs, p, blurFactor)
+
+
+############Nothing######################################################################
+            # Adjusting for NOTHING
+            # adjusted = p
+
+
+#######################################################################################
+            # Getting best guess
+            # this will get the max of the first variable
+            bestCircleIndex = adjusted.index(max(adjusted[0], adjusted[1], adjusted[2]))
+            bestAngleIndex = adjusted[bestCircleIndex][1].index(max(adjusted[bestCircleIndex][1]))
+            self.bestGuess.extend([[bestCircleIndex, bestAngleIndex]])
+            blurP.extend(adjusted)
+            previousProbs = adjusted
+            print(imagePath)
+
+        self.blurP = blurP
+        self.writeProb(self.blurP, 'out.txt', 'w')
+        self.writeProb(self.bestGuess, 'bestGuess.txt', 'w')
+        self.writeCoord('coord.txt','w')
+
+        end = time.time()
+        print('Time elapsed: %0.1f' % (end-start))
+
 
     def Laplacian(self, imagePath):
         ''' this function calcualte the blurriness factor'''
@@ -216,6 +288,8 @@ class analyzer(object):
         end = time.time()
 
         print('Time elapsed: %0.1f' % (end-start))
+
+
 
     def accountCommand(self, command, previousP):
         '''this funciton accounts for the command robot is given at the moment'''
@@ -293,6 +367,23 @@ class analyzer(object):
         content = file.read().split('\n')[:-1]
         coordinates = [list(map(int, coord.split(','))) for coord in content]
         return coordinates
+
+    def readProb(self, filename):
+        '''this function reads the content of a txt file, turn the data into  dictionaries of 
+        circles'''
+        file = open(filename, 'r') 
+        content = file.read().split('\n')[:-1]
+        probDict = {}
+        counter = 0
+        for i in range(len(content))[::6]:
+            name = str(counter).zfill(4)
+            L1 = list(map(float, content[i+1].replace('[','').replace(']','').split(',')))
+            L2 = list(map(float, content[i+3].replace('[','').replace(']','').split(',')))
+            L3 = list(map(float, content[i+5].replace('[','').replace(']','').split(',')))
+            probDict[name] = [[float(content[i]), L1], [float(content[i+2]), L2], [float(content[i+4]), L3]]
+            counter += 1
+        return probDict
+
 
     def errorMetric(self):
         ''' this function calculate the differences between best guesses and the true values'''
