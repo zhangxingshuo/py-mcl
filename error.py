@@ -95,4 +95,41 @@ def modalMetric():
         angleError += (bestGuessAngle - angle)**2
 
     return math.sqrt(angleError)
+
+########################################
+### Average Probabilitistic Variance ###
+########################################
+
+def errorMetric():
+    ''' this function calculate the differences between best guesses and the true values'''
+    bestGuess = readBestGuess('bestGuess.txt')
+    # best Guess contains a list of lists. First elements is the index of the best cirlce, second element is the index
+    # of the best angle
+    coordinates = readCoord('coord.txt')
+    # coordinates is the "real" position of the robot as analyzed by the image matching algorithm
+    # the first two points of coordinates is the position of the robot, the second set of points
+    # are direction of the angle 
+
+    probD = readProb('out.txt')
+
+    L= []
+    for key, value in probD.items():
+        index = int(key)
+        bestGuessAngle = bestGuess[index][1]*15
+        bestGuessCircle = bestGuess[index][0]
+        predictedAngles = value[bestGuessCircle][1]
+        angleError = 0
+        robotPos = coordinates[index][:2]
+        robotDir = coordinates[index][2:]
+        angle = math.atan2(robotDir[1] - robotPos[1], robotDir[0] - robotPos[0])
+        angle = angle*180./math.pi + 90
+        if angle < 0:
+            angle += 360
+        for i in range(len(predictedAngles)):
+            prob = predictedAngles[i]
+            predAngle = i*15
+            angleError += prob * (predAngle - angle)**2
+        L.append(angleError)
+        
+    return sum(L)/len(L)
             
