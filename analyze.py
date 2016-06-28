@@ -34,9 +34,9 @@ class analyzer(object):
         '''this function weighted the probability list according to the blurriness factor'''
         currentWeight = 0
         if blurFactor > 200:
-            currentWeight = 0.85
+            currentWeight = 0.6
         else:
-            currentWeight = (blurFactor / 200) * 0.85
+            currentWeight = (blurFactor / 200) * 0.6
         previousWeight = 1 - currentWeight
 
         # Assigning the weight to each list
@@ -68,7 +68,7 @@ class analyzer(object):
 
     def prevWeight(self, previousP, currentP):
         '''this function weighted the probability list according to the blurriness factor'''
-        currentWeight = 0.9
+        currentWeight = 0.6
         previousWeight = 1- currentWeight
         # if blurFactor > 200:
         #     currentWeight = 0.85
