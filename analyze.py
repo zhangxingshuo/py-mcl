@@ -83,8 +83,11 @@ class analyzer(object):
 
     def processRaw(self):
         '''this function processed the raw function'''
-        previousProbs = [[1, [1/75] * 25 ], [1,[1/75] * 25 ] , [1,[1/75] * 25], 
-            [1, [1/75] * 25 ], [1, [1/75] * 25 ], [1, [1/75] * 25 ], [1, [1/75] * 25 ]]
+        previousProbs = []
+        for i in range(self.numLocations):
+            previousProbs.append([1, [1/75] * 25])
+        # previousProbs = [[1, [1/75] * 25 ], [1,[1/75] * 25 ] , [1,[1/75] * 25], 
+        #     [1, [1/75] * 25 ], [1, [1/75] * 25 ], [1, [1/75] * 25 ], [1, [1/75] * 25 ]]
         start = time.time()
         # matcher = Matcher(self.method, width=self.w, height=self.h)
         probDict = self.readProb('rawP.txt')
@@ -138,7 +141,10 @@ class analyzer(object):
         previousWeight = 1 - currentWeight
 
         # Assigning the weight to each list
-        truePosition = [[0, []], [0,[]], [0,[]], [0,[]], [0,[]], [0,[]], [0,[]]]
+        truePosition = []
+        for i in range(self.numLocations):
+            truePosition.append([0, []])
+        # truePosition = [[0, []], [0,[]], [0,[]], [0,[]], [0,[]], [0,[]], [0,[]]]
 
 
         for circleIndex in range(len(truePosition)):
@@ -175,8 +181,10 @@ class analyzer(object):
         # previousWeight = 1 - currentWeight
 
         # Assigning the weight to each list
-        truePosition = [[0, []], [0,[]] , [0,[]], [0,[]], [0,[]], [0,[]], [0,[]]]
-
+        truePosition = []
+        for i in range(self.numLocations):
+            truePosition.append([0, []])
+        # truePosition = [[0, []], [0,[]] , [0,[]], [0,[]], [0,[]], [0,[]], [0,[]]]
 
         for circleIndex in range(len(truePosition)):
             currentCircle = currentP[circleIndex]
