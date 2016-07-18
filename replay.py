@@ -9,7 +9,7 @@ currentIndex = 0
 #     img = cv2.imread(imagePath, 0)
 #     var = cv2.Laplacian(img, cv2.CV_64F).var()
 #     return var
-
+extension = '.jpg'
 def readCoord(filename):
     file = open(filename, 'r')
     content = file.read().split('\n')[:-1]
@@ -43,15 +43,26 @@ def Laplacian(img):
     var = cv2.Laplacian(img, cv2.CV_64F).var()
     return var
 
+def readCommand(filename):
+    '''this function reads the command list from the robot'''
+    file = open(filename, 'r')
+    content = file.read().split('\n')[:-1]
+    commandDict = {}
+    for data in content:
+        commandDict[data[:4]] = str(data[-1])
+    return commandDict
+
+
 coordinates = readCoord('coord.txt')
 bestGuess = readBestGuess('bestGuess.txt')
-maxImg = len(coordinates)
+commands = readCommand('commands.txt')
+maxImg = len(commands)
 
 img = np.zeros((960,1280, 3), np.uint8)
 
 while True:
     filename = str(currentIndex).zfill(4)
-    visual = cv2.imread('visual/' + filename + ".jpg")
+    visual = cv2.imread('visual/' + filename + extension)
     cv2.putText(visual, 'Algorithm Representation', (30,30), cv2.FONT_HERSHEY_COMPLEX, 1, (255,255,255))
     g = cv2.imread('cam2_img/' + filename + '.jpg')
 
@@ -59,7 +70,8 @@ while True:
     groundTruth = cv2.flip(groundTruth, 0)
     cv2.putText(groundTruth, 'Ground Truth', (30,30), cv2.FONT_HERSHEY_COMPLEX, 1, (255,255,255))
 
-    novel = cv2.imread('cam1_img/' + filename + '.jpg')
+    novel = cv2.imread('cam1_img/' + filename + extension)
+    novel = cv2.resize(novel, (640, 480))
     blurFactor = Laplacian(novel)
     cv2.putText(novel, 'Robot Camera', (30,30), cv2.FONT_HERSHEY_COMPLEX, 1, (255,255,255))
     cv2.putText(novel, 'Blur: ' + str(blurFactor), (30, 450), cv2.FONT_HERSHEY_COMPLEX, 1, (255,255,255))
@@ -67,7 +79,8 @@ while True:
     bestCircle = bestGuess[int(filename)][0]
     bestArrow = bestGuess[int(filename)][1]
 
-    guess = cv2.imread('map/%s/angle%s.jpg' % (str(bestCircle), str(15*bestArrow).zfill(3)))
+    guess = cv2.imread(('map/%s/angle%s' + extension) % (str(bestCircle), str(15*bestArrow).zfill(3)))
+    guess = cv2.resize(guess, (640,480))
     cv2.putText(guess, 'Image Match', (30,30), cv2.FONT_HERSHEY_COMPLEX, 1, (255,255,255))
     # Illustrate the position of the robot
     # center = tuple(coordinates[currentIndex][:2])

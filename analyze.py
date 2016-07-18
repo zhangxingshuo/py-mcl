@@ -1,22 +1,3 @@
-'''
-Visual Monte Carlo Localization
-===============================
-
-Given a dataset of images and map of surroundings,
-can successfully localize the camera within the
-surroundings.
-
-Supports multiple image-matching algorithms, including 
-Scale-Invariant Feature Transform (SIFT), Speeded-Up
-Robust Features (SURF), and color histogram matching. 
-
-Corrects for motion blur by weighing each update 
-proportional to the variance of the Laplacian. Also
-has a motion model to shift the particles according to
-the motion of the camera. 
-'''
-
-
 import cv2
 import numpy as np 
 import math
@@ -25,11 +6,12 @@ import time
 
 from Matcher import Matcher 
 
+extension = '.jpg'
+
 class analyzer(object):
 
     def __init__(self, method, width, height):
-        self.numLocations = 3
-        self.indices = [None] * self.numLocations
+        self.index1, self.index2, self.index3 = [], [], []
         self.method = method
         self.w = width
         self.h = height
@@ -37,105 +19,31 @@ class analyzer(object):
         self.blurP = []
         self.commands = self.readCommand('commands.txt')
         self.bestGuess = []
+        #res1 = 320
+        #res2 = 240
 
-    def createIndex(self):
-        ''' This function creates indexes of feature '''
-        matcher = Matcher(self.method, width=self.w, height=self.h)
-        for i in range(self.numLocations):
-            if self.method != 'Color':
-                matcher.setDirectory('map/' + str(i))
-                self.indices[i] = matcher.createFeatureIndex()
-            else:
-                matcher.setDirectory('map/' + str(i))
-                self.indices[i] = matcher.createColorIndex()
+    def readProb(self, filename):
+        '''this function reads the probabilities from a txt file'''
+        file = open(filename,'r')
+        content = file.read().split('\n')[:-1]
+        newContent = []
+        for i in range(len(content))[::2]:
+            L = list(map(float, content[i+1].replace('[','').replace(']','').split(',')))
+            newContent.append((int(content[i]), L))
+        return newContent
 
-    def createRawP(self):
-        ''' This function generates a list of raw probabilities directly from image matching'''
-        self.createIndex()
-        start = time.time()
-        p = []
-        matcher = Matcher(self.method, width=self.w, height=self.h)
-        for imagePath in glob.glob('cam1_img' + '/*.jpg'):
-            matcher.setQuery(imagePath)
-            results = []
-            for i in range(self.numLocations):
-                matcher.setDirectory('map/' + str(i))
-                if self.method != 'Color':
-                    matcher.setIndex(self.indices[i])
-                else:
-                    matcher.setColorIndex(self.indices[i])
-                totalMatches, probL, _ = matcher.run()
-                results.append([totalMatches, probL])
-
-            p.extend(results)  
-            print(imagePath)
-
-        self.rawP = p
-        self.writeProb(p, 'rawP.txt', 'w')
-
-        end = time.time()
-        print('Time elapsed: %0.1f' % (end-start))
-
-    def processRaw(self):
-        '''this function processes the raw probability data by updating the 
-        probabilitiies accordingly'''
-        previousProbs = [[1, [1/75] * 25 ], [1,[1/75] * 25 ] , [1,[1/75] * 25]]
-        start = time.time()
-        # matcher = Matcher(self.method, width=self.w, height=self.h)
-        probDict = self.readProb('rawP.txt')
-        blurP = []
-        for imagePath in glob.glob('cam1_img' + '/*.jpg'):
-            p = probDict[imagePath.replace('cam1_img/', '').replace('.jpg', '')]
-
-            # Reading Blur
-            blurFactor = self.Laplacian(imagePath)
-
-            # Reading Command
-            command = self.commands[imagePath.replace('cam1_img/', '').replace('.jpg', '')]
-
-            # Account for Command
-            actionAccount = self.motionModel(command, previousProbs)
-
-            # Adjusting for Command
-            adjusted = self.prevWeight(actionAccount, p)
-
-            # Adjusting for Blur
-            adjusted = self.blurCorrect(actionAccount, adjusted, blurFactor)
-
-            # Getting best guess
-            # this will get the max of the first variable
-            bestCircleIndex = adjusted.index(max(adjusted[0], adjusted[1], adjusted[2]))
-            bestAngleIndex = adjusted[bestCircleIndex][1].index(max(adjusted[bestCircleIndex][1]))
-            self.bestGuess.extend([[bestCircleIndex, bestAngleIndex]])
-            blurP.extend(adjusted)
-            previousProbs = adjusted
-            print(imagePath)
-
-        self.blurP = blurP
-        self.writeProb(self.blurP, 'out.txt', 'w')
-        self.writeProb(self.bestGuess, 'bestGuess.txt', 'w')
-        self.writeCoord('coord.txt','w')
-
-        end = time.time()
-        print('Time elapsed: %0.1f' % (end-start))
-
-
-    ############################
-    ### Probability Updating ###
-    ############################
-
-    def blurCorrect(self, previousP, currentP, blurFactor):
+    def probUpdate(self, previousP, currentP, blurFactor):
         '''this function weighted the probability list according to the blurriness factor'''
-        maxBlurWeight = 0.6
         currentWeight = 0
         if blurFactor > 200:
-            currentWeight = maxBlurWeight
+            currentWeight = 0.85
         else:
-            currentWeight = (blurFactor / 200) * maxBlurWeight
+            currentWeight = (blurFactor / 200) * 0.85
         previousWeight = 1 - currentWeight
 
         # Assigning the weight to each list
         truePosition = [[0, []], [0,[]] , [0,[]]]
+
 
         for circleIndex in range(len(truePosition)):
             currentCircle = currentP[circleIndex]
@@ -161,9 +69,14 @@ class analyzer(object):
         return truePosition
 
     def prevWeight(self, previousP, currentP):
-        '''weights the previous generation of probabilities'''
-        currentWeight = 0.6
+        '''this function weighted the probability list according to the blurriness factor'''
+        currentWeight = 0.7
         previousWeight = 1- currentWeight
+        # if blurFactor > 200:
+        #     currentWeight = 0.85
+        # else:
+        #     currentWeight = (blurFactor / 200) * 0.85
+        # previousWeight = 1 - currentWeight
 
         # Assigning the weight to each list
         truePosition = [[0, []], [0,[]] , [0,[]]]
@@ -192,7 +105,263 @@ class analyzer(object):
 
         return truePosition
 
-    def motionModel(self, command, previousP):
+    def createIndex(self):
+        ''' This function creates indexes of feature '''
+        matcher = Matcher(self.method, width=self.w, height=self.h)
+        matcher.setDirectory('spot_one')
+        self.index1 = matcher.createFeatureIndex()
+        matcher.setDirectory('spot_two')
+        self.index2 = matcher.createFeatureIndex()
+        matcher.setDirectory('spot_three')
+        self.index3 = matcher.createFeatureIndex()
+        # self.index1 = Matcher('query.jpg','spot_one', self.method, None, self.res1, self.res2).createFeatureIndex()
+        # self.index2 = Matcher('query.jpg','spot_two', self.method, None, self.res1, self.res2).createFeatureIndex()
+        # self.index3 = Matcher('query.jpg','spot_three', self.method, None, self.res1, self.res2).createFeatureIndex()
+
+    def readCommand(self, filename):
+        '''this function reads the command list from the robot'''
+        file = open(filename, 'r')
+        content = file.read().split('\n')[:-1]
+        commandDict = {}
+        for data in content:
+            commandDict[data[:4]] = str(data[-1])
+        return commandDict
+
+    def createRawP(self):
+        ''' This function generates a list of raw probabilities directly from image matching'''
+        self.createIndex()
+        start = time.time()
+        p = []
+        matcher = Matcher(self.method, width=self.w, height=self.h)
+        for imagePath in glob.glob('cam1_img' + '/*' + extension):
+            matcher.setQuery(imagePath)
+
+            matcher.setDirectory('spot_one')
+            matcher.setIndex(self.index1)
+            totalMatches1, results1, _ = matcher.run()
+
+            matcher.setDirectory('spot_two')
+            matcher.setIndex(self.index2)
+            totalMatches2, results2, _ = matcher.run()
+
+            matcher.setDirectory('spot_three')
+            matcher.setIndex(self.index3)
+            totalMatches3, results3, _ = matcher.run()
+            # totalMatches1, results1, __ = Matcher(imagePath, 'spot_one', self.method, self.index1, self.res1, self.res2).run()
+            # totalMatches2, results2, __ = Matcher(imagePath, 'spot_two', self.method, self.index2, self.res1, self.res2).run()
+            # totalMatches3, results3, __ = Matcher(imagePath, 'spot_three', self.method, self.index3, self.res1, self.res2).run()
+            p.extend([[totalMatches1, results1], [totalMatches2, results2], [totalMatches3, results3]])
+            # print(p)
+            # cv2.waitKey(0)        
+            print(imagePath)
+        self.rawP = p
+        self.writeProb(p, 'rawP.txt', 'w')
+
+        end = time.time()
+        print('Time elapsed: %0.1f' % (end-start))
+
+    def processRaw(self):
+        '''this function processed the raw function'''
+        previousProbs = [[1, [1/75] * 25 ], [1,[1/75] * 25 ] , [1,[1/75] * 25]]
+        start = time.time()
+        # matcher = Matcher(self.method, width=self.w, height=self.h)
+        probDict = self.readProb('rawP.txt')
+        blurP = []
+        for imagePath in glob.glob('cam1_img' + '/*' + extension):
+            p = probDict[imagePath.replace('cam1_img/', '').replace(extension, '')]
+                        # Reading Blur
+            blurFactor = self.Laplacian(imagePath)
+
+
+############Everything##################################################################
+            # Reading Command
+            command = self.commands[imagePath.replace('cam1_img/', '').replace(extension, '')]
+
+            # Account for Command
+            actionAccount = self.accountCommand(command, previousProbs)
+
+            # Adjusting for Command
+            adjusted = self.prevWeight(actionAccount, p)
+
+            # Adjusting for Blur
+            adjusted = self.probUpdate(actionAccount, adjusted, blurFactor)
+
+############Motion Only##################################################################
+            # # Reading Command
+            # command = self.commands[imagePath.replace('cam1_img/', '').replace('.jpg', '')]
+
+            # # Account for Command
+            # actionAccount = self.accountCommand(command, previousProbs)
+
+            # # Adjusting for Command
+            # adjusted = self.prevWeight(actionAccount, p)
+
+
+#############Blur Only #####################################################################
+            # Only Adjusting for blur
+            # adjusted = self.probUpdate(previousProbs, p, blurFactor)
+
+            # adjusted = self.prevWeight(adjusted, p)
+
+
+############Nothing######################################################################
+            # Adjusting for NOTHING
+            # adjusted = p
+
+
+#######################################################################################
+            # Getting best guess
+            # this will get the max of the first variable
+            bestCircleIndex = adjusted.index(max(adjusted[0], adjusted[1], adjusted[2]))
+            bestAngleIndex = adjusted[bestCircleIndex][1].index(max(adjusted[bestCircleIndex][1]))
+            self.bestGuess.extend([[bestCircleIndex, bestAngleIndex]])
+            blurP.extend(adjusted)
+            previousProbs = adjusted
+            print(imagePath)
+
+        self.blurP = blurP
+        self.writeProb(self.blurP, 'out.txt', 'w')
+        self.writeProb(self.bestGuess, 'bestGuess.txt', 'w')
+        self.writeCoord('coord.txt','w')
+
+        end = time.time()
+        print('Time elapsed: %0.1f' % (end-start))
+
+    # def optRaw(self):
+    #     '''Optimizing version of the algorithm... creates an initial list'''
+    #     self.createIndex()
+    #     start = time.time()
+    #     p = []
+    #     previousProbs = [[1, [1/75] * 25 ], [1,[1/75] * 25 ] , [1,[1/75] * 25]]
+    #     matcher = Matcher(self.method, width=self.w, height=self.h)
+
+    #     certain = ''
+    #     pointFound = False
+    #     # First find the best angle match 
+    #     for imagePath in glob.glob('cam1_img' + '/*.jpg'):
+    #         if pointFound == False:
+    #             matcher.setQuery(imagePath)
+
+    #             matcher.setDirectory('spot_one')
+    #             matcher.setIndex(self.index1)
+    #             totalMatches1, results1, _ = matcher.run()
+
+    #             matcher.setDirectory('spot_two')
+    #             matcher.setIndex(self.index2)
+    #             totalMatches2, results2, _ = matcher.run()
+
+    #             matcher.setDirectory('spot_three')
+    #             matcher.setIndex(self.index3)
+    #             totalMatches3, results3, _ = matcher.run()
+
+    #             p.extend([[totalMatches1, results1], [totalMatches2, results2], [totalMatches3, results3]])
+        
+    #             # Reading Blur
+    #             blurFactor = self.Laplacian(imagePath)
+    #             # Reading Command
+    #             command = self.commands[imagePath.replace('cam1_img/', '').replace('.jpg', '')]
+
+    #             # Account for Action
+    #             actionAccount = self.accountCommand(command, previousProbs)
+
+    #             # Adjusting for Action
+    #             adjusted = self.prevWeight(actionAccount, p)
+
+    #             # Adjusting for Blur
+    #             adjusted = self.probUpdate(actionAccount, adjusted, blurFactor)
+
+    #             # Getting best guess
+    #             # this will get the max of the first variable
+    #             bestCircleIndex = adjusted.index(max(adjusted[0], adjusted[1], adjusted[2]))
+    #             bestAngleIndex = adjusted[bestCircleIndex][1].index(max(adjusted[bestCircleIndex][1]))
+    #             if adjusted[bestCircleIndex][1][bestAngleIndex] > 10:
+    #                 certain = imagePath
+    #                 break
+    #             self.bestGuess.extend([[bestCircleIndex, bestAngleIndex]])
+    #             # blurP.extend(adjusted)
+    #             previousProbs = adjusted
+    #             # self.rawP.extend(p)
+    #             print(imagePath)
+    #         else:
+                
+
+    #     certainIndex = glob.glob('cam1_img' + '/*.jpg').index(certainIndex):
+
+
+    #     self.rawP = p
+    #     self.writeProb(p, 'rawP.txt', 'w')
+
+    #     end = time.time()
+    #     print('Time elapsed: %0.1f' % (end-start))
+
+    def Laplacian(self, imagePath):
+        ''' this function calcualte the blurriness factor'''
+        img = cv2.imread(imagePath, 0)
+        var = cv2.Laplacian(img, cv2.CV_64F).var()
+        return var
+
+    def createBlurP(self):
+        ''' This function generates a list of probabilities after accounting for the blurriness factor'''
+        start = time.time()
+        self.createIndex()
+        blurP = []
+        previousProbs = [[1, [1/75] * 25 ], [1,[1/75] * 25 ] , [1,[1/75] * 25]]
+        matcher = Matcher(self.method, width=self.w, height=self.h)
+        for imagePath in glob.glob('cam1_img' + '/*.jpg'):
+            p = []
+            matcher.setQuery(imagePath)
+
+            matcher.setDirectory('spot_one')
+            matcher.setIndex(self.index1)
+            totalMatches1, results1, _ = matcher.run()
+
+            matcher.setDirectory('spot_two')
+            matcher.setIndex(self.index2)
+            totalMatches2, results2, _ = matcher.run()
+
+            matcher.setDirectory('spot_three')
+            matcher.setIndex(self.index3)
+            totalMatches3, results3, _ = matcher.run()
+            # totalMatches1, results1, __ = Matcher(imagePath, 'spot_one', self.method, self.index1, self.res1, self.res2).run()
+            # totalMatches2, results2, __ = Matcher(imagePath, 'spot_two', self.method, self.index2, self.res1, self.res2).run()
+            # totalMatches3, results3, __ = Matcher(imagePath, 'spot_three', self.method, self.index3, self.res1, self.res2).run()
+            p.extend([[totalMatches1, results1], [totalMatches2, results2], [totalMatches3, results3]])
+
+            # Reading Blur
+            blurFactor = self.Laplacian(imagePath)
+            # Reading Command
+            command = self.commands[imagePath.replace('cam1_img/', '').replace('.jpg', '')]
+
+            # Account for Action
+            actionAccount = self.accountCommand(command, previousProbs)
+
+            # Adjusting for Action
+            adjusted = self.prevWeight(actionAccount, p)
+
+            # Adjusting for Blur
+            adjusted = self.probUpdate(actionAccount, adjusted, blurFactor)
+
+            # Getting best guess
+            # this will get the max of the first variable
+            bestCircleIndex = adjusted.index(max(adjusted[0], adjusted[1], adjusted[2]))
+            bestAngleIndex = adjusted[bestCircleIndex][1].index(max(adjusted[bestCircleIndex][1]))
+            self.bestGuess.extend([[bestCircleIndex, bestAngleIndex]])
+            blurP.extend(adjusted)
+            previousProbs = adjusted
+            self.rawP.extend(p)
+            print(imagePath)
+
+        self.blurP = blurP
+        self.writeProb(self.blurP, 'out.txt', 'w')
+        self.writeProb(self.bestGuess, 'bestGuess.txt', 'w')
+        self.writeCoord('coord.txt','w')
+        end = time.time()
+
+        print('Time elapsed: %0.1f' % (end-start))
+
+
+
+    def accountCommand(self, command, previousP):
         '''this funciton accounts for the command robot is given at the moment'''
         # Left
         copy = previousP[:]
@@ -204,10 +373,41 @@ class analyzer(object):
                 circles[1] = circles[1][-1:] + circles[1][0:-1]
         return copy
 
+    def trackRobot(self, imagePath):
+        '''this function track the robot and return its coordinates'''
+        img = cv2.imread(imagePath)
+        img = cv2.flip(img, 1)
+        img = cv2.flip(img, 0)
 
-    ###################################
-    ### Reading and Writing Methods ###
-    ###################################
+        # convert into hsv 
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+        # Find mask that matches 
+        green_mask = cv2.inRange(hsv, np.array((50., 30., 0.)), np.array((100., 255., 255.)))
+        green_mask = cv2.erode(green_mask, None, iterations=2)
+        green_mask = cv2.dilate(green_mask, None, iterations=2)
+
+        green_cnts = cv2.findContours(green_mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2]
+        green_c = max(green_cnts, key=cv2.contourArea)
+
+        # fit an ellipse and use its orientation to gain info about the robot
+        green_ellipse = cv2.fitEllipse(green_c)
+
+        # This is the position of the robot
+        green_center = (int(green_ellipse[0][0]), int(green_ellipse[0][1]))
+
+        red_mask = cv2.inRange(hsv, np.array((0., 100., 100.)), np.array((80., 255., 255.)))
+        red_mask = cv2.erode(red_mask, None, iterations=2)
+        red_mask = cv2.erode(red_mask, None, iterations=2)
+
+        red_cnts = cv2.findContours(red_mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2]
+        red_c = max(red_cnts, key=cv2.contourArea)
+
+        red_ellipse = cv2.fitEllipse(red_c)
+        red_center = (int(red_ellipse[0][0]), int(red_ellipse[0][1]))
+
+
+        return green_center, red_center
 
     def writeCoord(self, filename, mode):
         '''this function writes out the coordinate of the robot to a txt file'''
@@ -254,60 +454,33 @@ class analyzer(object):
             counter += 1
         return probDict
 
-    def readCommand(self, filename):
-        '''this function reads the command list from the robot'''
-        file = open(filename, 'r')
-        content = file.read().split('\n')[:-1]
-        commandDict = {}
-        for data in content:
-            commandDict[data[:4]] = str(data[-1])
-        return commandDict
 
+    def errorMetric(self):
+        ''' this function calculate the differences between best guesses and the true values'''
+        bestGuess = self.readBestGuess('bestGuess.txt')
+        # best Guess contains a list of lists. First elements is the index of the best cirlce, second element is the index
+        # of the best angle
+        coordinates = self.readCoord('coord.txt')
+        # coordinates is the "real" position of the robot as analyzed by the image matching algorithm
+        # the first two points of coordinates is the position of the robot, the second set of points
+        # are direction of the angle 
+        angleError = 0
+        for i in range(len(bestGuess)):
+            bestGuessAngle = bestGuess[i][1] * 15
+            robotPos = coordinates[i][:2]
+            robotDir = coordinates[i][2:]
+            angle = math.atan2(robotDir[1] - robotPos[1], robotDir[0] - robotPos[0])
+            angle *= 180./math.pi
+            angle += 90
+            if angle <= 0:
+                angle += 360
+            # print (angle)
+            # print ("best: " + str(bestGuessAngle))
+            if bestGuessAngle == 0 and angle > 300:
+                bestGuessAngle = 360
+            elif bestGuessAngle == 360 and angle < 60:
+                bestGuessAngle = 0
+            angleError += (bestGuessAngle - angle)**2
 
-    ############################
-    ### Additional Functions ###
-    ############################
-
-    def Laplacian(self, imagePath):
-        ''' this function calcualte the blurriness factor'''
-        img = cv2.imread(imagePath, 0)
-        var = cv2.Laplacian(img, cv2.CV_64F).var()
-        return var
-
-    def trackRobot(self, imagePath):
-        '''this function track the robot and return its coordinates'''
-        img = cv2.imread(imagePath)
-        img = cv2.flip(img, 1)
-        img = cv2.flip(img, 0)
-
-        # convert into hsv 
-        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-
-        # Find mask that matches 
-        green_mask = cv2.inRange(hsv, np.array((50., 30., 0.)), np.array((100., 255., 255.)))
-        green_mask = cv2.erode(green_mask, None, iterations=2)
-        green_mask = cv2.dilate(green_mask, None, iterations=2)
-
-        green_cnts = cv2.findContours(green_mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2]
-        green_c = max(green_cnts, key=cv2.contourArea)
-
-        # fit an ellipse and use its orientation to gain info about the robot
-        green_ellipse = cv2.fitEllipse(green_c)
-
-        # This is the position of the robot
-        green_center = (int(green_ellipse[0][0]), int(green_ellipse[0][1]))
-
-        red_mask = cv2.inRange(hsv, np.array((0., 100., 100.)), np.array((80., 255., 255.)))
-        red_mask = cv2.erode(red_mask, None, iterations=2)
-        red_mask = cv2.erode(red_mask, None, iterations=2)
-
-        red_cnts = cv2.findContours(red_mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2]
-        red_c = max(red_cnts, key=cv2.contourArea)
-
-        red_ellipse = cv2.fitEllipse(red_c)
-        red_center = (int(red_ellipse[0][0]), int(red_ellipse[0][1]))
-
-        return green_center, red_center
-
-if __name__ == '__main__':
-    print(__doc__)
+        return math.sqrt(angleError)
+            

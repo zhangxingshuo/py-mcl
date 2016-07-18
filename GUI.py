@@ -5,7 +5,7 @@ import glob
 
 from Matcher import Matcher
 # from analyzer import analyzer
-
+extension = '.jpg'
 class Circle(object):
     def __init__(self, radius, x, y, folder, color):
         self.r = radius
@@ -211,27 +211,27 @@ bestGuess = readBestGuess('bestGuess.txt')
 # Outputting the Probability
 
 
-for imagePath in glob.glob('cam1_img' + '/*.jpg'):
+for imagePath in glob.glob('cam1_img' + '/*' + extension):
         # Initiating views
         img = np.zeros((480,640,3), np.uint8)
         novelView = cv2.imread(imagePath)
         groundTruth = cv2.imread(imagePath.replace('cam1_img', 'cam2_img'))
 
         # Read matching data
-        p = probDict[imagePath.replace('cam1_img/', '').replace('.jpg', '')]
+        p = probDict[imagePath.replace('cam1_img/', '').replace(extension, '')]
 
         # Accounting for Blur factor 
         blurFactor = Laplacian(imagePath)
         illustrateProb(circles, Arrows, p)
 
         # Illustrate the position of the robot
-        center = tuple(coordinates[int(imagePath.replace('cam1_img/', '').replace('.jpg', ''))][:2])
+        center = tuple(coordinates[int(imagePath.replace('cam1_img/', '').replace(extension, ''))][:2])
 
         # Illustrate the orientation
-        or_point = tuple(coordinates[int(imagePath.replace('cam1_img/', '').replace('.jpg', ''))][2:])
+        or_point = tuple(coordinates[int(imagePath.replace('cam1_img/', '').replace(extension, ''))][2:])
 
-        bestCircleIndex = bestGuess[int(imagePath.replace('cam1_img/', '').replace('.jpg', ''))][0]
-        bestArrowIndex = bestGuess[int(imagePath.replace('cam1_img/', '').replace('.jpg', ''))][1]
+        bestCircleIndex = bestGuess[int(imagePath.replace('cam1_img/', '').replace(extension, ''))][0]
+        bestArrowIndex = bestGuess[int(imagePath.replace('cam1_img/', '').replace(extension, ''))][1]
         # Best arrow:
         bestArrow = Arrows[bestCircleIndex][bestArrowIndex]
         bestArrow.setColor((255,255, 0))
@@ -243,7 +243,7 @@ for imagePath in glob.glob('cam1_img' + '/*.jpg'):
         drawArrows(arrows2)
         drawArrows(arrows3)
         cv2.putText(img, imagePath, (100,400), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255),2)
-        cv2.putText(img, commandList[imagePath.replace('.jpg', '').replace('cam1_img/', '')], (500, 400), cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 2)
+        cv2.putText(img, commandList[imagePath.replace(extension, '').replace('cam1_img/', '')], (500, 400), cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 2)
         cv2.putText(img, str(blurFactor), (100, 100), cv2.FONT_HERSHEY_COMPLEX, 1, (0,0,255), 2)
 
         # Draw actual position
@@ -252,7 +252,7 @@ for imagePath in glob.glob('cam1_img' + '/*.jpg'):
 
         cv2.imwrite('visual/' + imagePath.replace('cam1_img/', ''), img)
         cv2.imshow('Visualization', img)
-        cv2.imshow('Ground Truth', groundTruth)
+        # cv2.imshow('Ground Truth', groundTruth)
         cv2.imshow('Novel', novelView)
 
 cv2.destroyAllWindows()
