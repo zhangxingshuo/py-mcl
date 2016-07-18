@@ -4,8 +4,10 @@ import math
 import glob
 
 from Matcher import Matcher
-# from analyzer import analyzer
+
 extension = '.jpg'
+NUM_LOCATIONS = 3
+
 class Circle(object):
     def __init__(self, radius, x, y, folder, color):
         self.r = radius
@@ -13,8 +15,8 @@ class Circle(object):
         self.y = y
         self.folder = folder
         self.color = color
-        self.panoWindow = self.folder + " panorama"
-        self.pano = cv2.imread(self.folder + "_panorama.jpg")
+        # self.panoWindow = self.folder + " panorama"
+        # self.pano = cv2.imread(self.folder + "_panorama.jpg")
 
     def draw(self, image):
         cv2.circle(image, (self.x, self.y), self.r, self.color, -1)
@@ -141,18 +143,28 @@ def illustrateProb(circle, arrowsL, probsL):
 def readProb(filename):
     '''this function reads the content of a txt file, turn the data into  dictionaries of 
     circles'''
-    file = open(filename, 'r') 
-    content = file.read().split('\n')[:-1]
-    probDict = {}
-    counter = 0
-    for i in range(len(content))[::6]:
-        name = str(counter).zfill(4)
-        L1 = list(map(float, content[i+1].replace('[','').replace(']','').split(',')))
-        L2 = list(map(float, content[i+3].replace('[','').replace(']','').split(',')))
-        L3 = list(map(float, content[i+5].replace('[','').replace(']','').split(',')))
-        probDict[name] = [[float(content[i]), L1], [float(content[i+2]), L2], [float(content[i+4]), L3]]
-        counter += 1
-    return probDict
+    # file = open(filename, 'r') 
+    # content = file.read().split('\n')[:-1]
+    # probDict = {}
+    # counter = 0
+    # for i in range(len(content))[::6]:
+    #     name = str(counter).zfill(4)
+    #     L1 = list(map(float, content[i+1].replace('[','').replace(']','').split(',')))
+    #     L2 = list(map(float, content[i+3].replace('[','').replace(']','').split(',')))
+    #     L3 = list(map(float, content[i+5].replace('[','').replace(']','').split(',')))
+    #     probDict[name] = [[float(content[i]), L1], [float(content[i+2]), L2], [float(content[i+4]), L3]]
+    #     counter += 1
+    # return probDict
+
+    file = open(filename, 'r')
+    raw_content = file.read().split('\n')[:-1]
+    raw_chunks = [content[i:i+2] for i in range(0, len(content), 2)]
+    raw_probL = [raw_chunks[i:i+NUM_LOCATIONS] for i in range(0, len(raw_chunks), NUM_LOCATIONS)]
+    content = list(map(lambda x: (float(x[0], list(map(float, x[1].replace('[','').replace(']','').split(','))))), raw_probL))
+    probD = {}
+    for i in range(len(content)):
+        probD[str(i).zfill(4)] = content[i]
+    return probD
 
 def readBestGuess(filename):
     '''this function reads the list of best guesses of the robot's position at every position'''
@@ -185,24 +197,28 @@ def Laplacian(imagePath):
 
 
 # Initiate Screen
-img = np.zeros((540, 960, 3), np.uint8)
+img = np.zeros((540, 1920, 3), np.uint8)
 cv2.namedWindow('GUI')  
 
 # Initiating Circles and Matches
-circle1 = Circle(50, 141, 221, 'spot_one', [150, 150, 150])
-circle2 = Circle(50, 304, 207, 'spot_two', [150, 150, 150])
-circle3 = Circle(50, 498, 196, 'spot_three', [150, 150, 150])
+circle1 = Circle(50, 141, 221, 'map/0', [150, 150, 150])
+circle2 = Circle(50, 304, 207, 'map/1', [150, 150, 150])
+circle3 = Circle(50, 498, 196, 'map/2', [150, 150, 150])
 circles = [circle1, circle2, circle3]
 
 # Initiating Arrows
-arrows1 = getArrows(circle1, 25)
-arrows2 = getArrows(circle2, 25)
-arrows3 = getArrows(circle3, 25)
+# arrows1 = getArrows(circle1, 25)
+# arrows2 = getArrows(circle2, 25)
+# arrows3 = getArrows(circle3, 25)
 
-Arrows = [arrows1, arrows2, arrows3]
+# arrows = [arrows1, arrows2, arrows3]
+
+arrows = []
+for circle in circles:
+    arrows.append(getArrows(circle, 25))
 
 method = 'SURF'
-previousProbs = [[0, [0] * 25 ], [0,[0] * 25 ] , [0,[0] * 25]]
+
 commandList = readCommand('commands.txt')
 probDict = readProb('out.txt')
 coordinates = readCoord('coord.txt')
@@ -239,9 +255,8 @@ for imagePath in glob.glob('cam1_img' + '/*' + extension):
         bestArrow.setSize(5)
         # Drawing Circles
         drawCircle(circles)
-        drawArrows(arrows1)
-        drawArrows(arrows2)
-        drawArrows(arrows3)
+        for arrow in arrows:
+            drawArrows(arrow)
         cv2.putText(img, imagePath, (100,400), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255),2)
         cv2.putText(img, commandList[imagePath.replace(extension, '').replace('cam1_img/', '')], (500, 400), cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 2)
         cv2.putText(img, str(blurFactor), (100, 100), cv2.FONT_HERSHEY_COMPLEX, 1, (0,0,255), 2)
