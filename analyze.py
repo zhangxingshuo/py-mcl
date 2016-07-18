@@ -24,12 +24,12 @@ import time
 
 from Matcher import Matcher 
 
-extension = '.jpg'
+extension = '.png'
 
 class analyzer(object):
 
     def __init__(self, method, width, height):
-        self.numLocations = 7
+        self.numLocations = 3
         self.indices = [None] * self.numLocations
         self.method = method
         self.w = width
@@ -43,12 +43,11 @@ class analyzer(object):
         ''' This function creates indexes of feature '''
         matcher = Matcher(self.method, width=self.w, height=self.h)
         for i in range(self.numLocations):
+            matcher.setDirectory('map/' + str(i))
             if self.method != 'Color':
-                matcher.setDirectory('map/' + str(i))
                 self.indices[i] = matcher.createFeatureIndex()
             else:
-                matcher.setDirectory('map/' + str(i))
-                self.indices[i] = matcher.createColorIndex()createFeatureIndex()
+                self.indices[i] = matcher.createColorIndex()
 
     ####################
     ### Main Methods ###
@@ -61,7 +60,7 @@ class analyzer(object):
         p = []
         matcher = Matcher(self.method, width=self.w, height=self.h)
         print('Matching...')
-        for imagePath in glob.glob('cam1_img' + '/*.jpg'):
+        for imagePath in glob.glob('cam1_img' + '/*' + extension):
             matcher.setQuery(imagePath)
             results = []
             for i in range(self.numLocations):
