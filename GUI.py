@@ -5,7 +5,7 @@ import glob
 
 from Matcher import Matcher
 
-extension = '.jpg'
+extension = '.png'
 NUM_LOCATIONS = 3
 
 class Circle(object):
@@ -158,12 +158,18 @@ def readProb(filename):
 
     file = open(filename, 'r')
     raw_content = file.read().split('\n')[:-1]
-    raw_chunks = [content[i:i+2] for i in range(0, len(content), 2)]
+    raw_chunks = [raw_content[i:i+2] for i in range(0, len(raw_content), 2)]
     raw_probL = [raw_chunks[i:i+NUM_LOCATIONS] for i in range(0, len(raw_chunks), NUM_LOCATIONS)]
-    content = list(map(lambda x: (float(x[0], list(map(float, x[1].replace('[','').replace(']','').split(','))))), raw_probL))
     probD = {}
-    for i in range(len(content)):
-        probD[str(i).zfill(4)] = content[i]
+    counter = 0
+    for prob in raw_probL:
+        content = []
+        for location in prob:
+            totalMatches = float(location[0])
+            probabilities = list(map(float, location[1].replace('[','').replace(']','').split(',')))
+            content.append([totalMatches, probabilities])
+        probD[str(counter).zfill(4)] = content
+        counter += 1
     return probD
 
 def readBestGuess(filename):
@@ -197,7 +203,7 @@ def Laplacian(imagePath):
 
 
 # Initiate Screen
-img = np.zeros((540, 1920, 3), np.uint8)
+# img = np.zeros((540, 1920, 3), np.uint8)
 cv2.namedWindow('GUI')  
 
 # Initiating Circles and Matches
@@ -205,13 +211,6 @@ circle1 = Circle(50, 141, 221, 'map/0', [150, 150, 150])
 circle2 = Circle(50, 304, 207, 'map/1', [150, 150, 150])
 circle3 = Circle(50, 498, 196, 'map/2', [150, 150, 150])
 circles = [circle1, circle2, circle3]
-
-# Initiating Arrows
-# arrows1 = getArrows(circle1, 25)
-# arrows2 = getArrows(circle2, 25)
-# arrows3 = getArrows(circle3, 25)
-
-# arrows = [arrows1, arrows2, arrows3]
 
 arrows = []
 for circle in circles:
@@ -238,18 +237,18 @@ for imagePath in glob.glob('cam1_img' + '/*' + extension):
 
         # Accounting for Blur factor 
         blurFactor = Laplacian(imagePath)
-        illustrateProb(circles, Arrows, p)
+        illustrateProb(circles, arrows, p)
 
         # Illustrate the position of the robot
-        center = tuple(coordinates[int(imagePath.replace('cam1_img/', '').replace(extension, ''))][:2])
+        # center = tuple(coordinates[int(imagePath.replace('cam1_img/', '').replace(extension, ''))][:2])
 
         # Illustrate the orientation
-        or_point = tuple(coordinates[int(imagePath.replace('cam1_img/', '').replace(extension, ''))][2:])
+        # or_point = tuple(coordinates[int(imagePath.replace('cam1_img/', '').replace(extension, ''))][2:])
 
         bestCircleIndex = bestGuess[int(imagePath.replace('cam1_img/', '').replace(extension, ''))][0]
         bestArrowIndex = bestGuess[int(imagePath.replace('cam1_img/', '').replace(extension, ''))][1]
         # Best arrow:
-        bestArrow = Arrows[bestCircleIndex][bestArrowIndex]
+        bestArrow = arrows[bestCircleIndex][bestArrowIndex]
         bestArrow.setColor((255,255, 0))
         bestArrow.setLength(2)
         bestArrow.setSize(5)
@@ -262,8 +261,8 @@ for imagePath in glob.glob('cam1_img' + '/*' + extension):
         cv2.putText(img, str(blurFactor), (100, 100), cv2.FONT_HERSHEY_COMPLEX, 1, (0,0,255), 2)
 
         # Draw actual position
-        cv2.arrowedLine(img, (center[0], center[1] - 100), (or_point[0], or_point[1] - 100), (0,255,0), 3)
-        cv2.circle(img, (center[0], center[1] - 100), 5, (0,0,255), -1)
+        # cv2.arrowedLine(img, (center[0], center[1] - 100), (or_point[0], or_point[1] - 100), (0,255,0), 3)
+        # cv2.circle(img, (center[0], center[1] - 100), 5, (0,0,255), -1)
 
         cv2.imwrite('visual/' + imagePath.replace('cam1_img/', ''), img)
         cv2.imshow('Visualization', img)
