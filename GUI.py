@@ -6,7 +6,7 @@ import glob
 from Matcher import Matcher
 
 extension = '.png'
-NUM_LOCATIONS = 3
+NUM_LOCATIONS = 7
 
 class Circle(object):
     def __init__(self, radius, x, y, folder, color):
@@ -201,16 +201,25 @@ def Laplacian(imagePath):
     var = cv2.Laplacian(img, cv2.CV_64F).var()
     return var
 
+def initiateCircle():
+    circles = [None] * NUM_LOCATIONS
+    for i in range(NUM_LOCATIONS):
+        circles[i] = Circle(50, 141 + 150 * i, 221, 'map/'+str(i), [150, 150, 150])
+    return circles
 
 # Initiate Screen
 # img = np.zeros((540, 1920, 3), np.uint8)
 cv2.namedWindow('GUI')  
 
 # Initiating Circles and Matches
-circle1 = Circle(50, 141, 221, 'map/0', [150, 150, 150])
-circle2 = Circle(50, 304, 207, 'map/1', [150, 150, 150])
-circle3 = Circle(50, 498, 196, 'map/2', [150, 150, 150])
-circles = [circle1, circle2, circle3]
+    # circles = [None] * NUM_LOCATIONS
+    # for i in range(NUM_LOCATIONS):
+    #     circle[i] = 
+    # circle1 = Circle(50, 141, 221, 'map/0', [150, 150, 150])
+    # circle2 = Circle(50, 304, 207, 'map/1', [150, 150, 150])
+    # circle3 = Circle(50, 498, 196, 'map/2', [150, 150, 150])
+    # circles = [circle1, circle2, circle3]
+circles = initiateCircle()
 
 arrows = []
 for circle in circles:
@@ -227,46 +236,46 @@ bestGuess = readBestGuess('bestGuess.txt')
 
 
 for imagePath in glob.glob('cam1_img' + '/*' + extension):
-        # Initiating views
-        img = np.zeros((480,640,3), np.uint8)
-        novelView = cv2.imread(imagePath)
-        groundTruth = cv2.imread(imagePath.replace('cam1_img', 'cam2_img'))
+    # Initiating views
+    img = np.zeros((480,200 + 150 * NUM_LOCATIONS,3), np.uint8)
+    novelView = cv2.imread(imagePath)
+    groundTruth = cv2.imread(imagePath.replace('cam1_img', 'cam2_img'))
 
-        # Read matching data
-        p = probDict[imagePath.replace('cam1_img/', '').replace(extension, '')]
+    # Read matching data
+    p = probDict[imagePath.replace('cam1_img/', '').replace(extension, '')]
 
-        # Accounting for Blur factor 
-        blurFactor = Laplacian(imagePath)
-        illustrateProb(circles, arrows, p)
+    # Accounting for Blur factor 
+    blurFactor = Laplacian(imagePath)
+    illustrateProb(circles, arrows, p)
 
-        # Illustrate the position of the robot
-        # center = tuple(coordinates[int(imagePath.replace('cam1_img/', '').replace(extension, ''))][:2])
+    # Illustrate the position of the robot
+    # center = tuple(coordinates[int(imagePath.replace('cam1_img/', '').replace(extension, ''))][:2])
 
-        # Illustrate the orientation
-        # or_point = tuple(coordinates[int(imagePath.replace('cam1_img/', '').replace(extension, ''))][2:])
+    # Illustrate the orientation
+    # or_point = tuple(coordinates[int(imagePath.replace('cam1_img/', '').replace(extension, ''))][2:])
 
-        bestCircleIndex = bestGuess[int(imagePath.replace('cam1_img/', '').replace(extension, ''))][0]
-        bestArrowIndex = bestGuess[int(imagePath.replace('cam1_img/', '').replace(extension, ''))][1]
-        # Best arrow:
-        bestArrow = arrows[bestCircleIndex][bestArrowIndex]
-        bestArrow.setColor((255,255, 0))
-        bestArrow.setLength(2)
-        bestArrow.setSize(5)
-        # Drawing Circles
-        drawCircle(circles)
-        for arrow in arrows:
-            drawArrows(arrow)
-        cv2.putText(img, imagePath, (100,400), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255),2)
-        cv2.putText(img, commandList[imagePath.replace(extension, '').replace('cam1_img/', '')], (500, 400), cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 2)
-        cv2.putText(img, str(blurFactor), (100, 100), cv2.FONT_HERSHEY_COMPLEX, 1, (0,0,255), 2)
+    bestCircleIndex = bestGuess[int(imagePath.replace('cam1_img/', '').replace(extension, ''))][0]
+    bestArrowIndex = bestGuess[int(imagePath.replace('cam1_img/', '').replace(extension, ''))][1]
+    # Best arrow:
+    bestArrow = arrows[bestCircleIndex][bestArrowIndex]
+    bestArrow.setColor((255,255, 0))
+    bestArrow.setLength(2)
+    bestArrow.setSize(5)
+    # Drawing Circles
+    drawCircle(circles)
+    for arrow in arrows:
+        drawArrows(arrow)
+    cv2.putText(img, imagePath, (100,400), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255),2)
+    cv2.putText(img, commandList[imagePath.replace(extension, '').replace('cam1_img/', '')], (500, 400), cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 2)
+    cv2.putText(img, str(blurFactor), (100, 100), cv2.FONT_HERSHEY_COMPLEX, 1, (0,0,255), 2)
 
-        # Draw actual position
-        # cv2.arrowedLine(img, (center[0], center[1] - 100), (or_point[0], or_point[1] - 100), (0,255,0), 3)
-        # cv2.circle(img, (center[0], center[1] - 100), 5, (0,0,255), -1)
+    # Draw actual position
+    # cv2.arrowedLine(img, (center[0], center[1] - 100), (or_point[0], or_point[1] - 100), (0,255,0), 3)
+    # cv2.circle(img, (center[0], center[1] - 100), 5, (0,0,255), -1)
 
-        cv2.imwrite('visual/' + imagePath.replace('cam1_img/', ''), img)
-        cv2.imshow('Visualization', img)
-        # cv2.imshow('Ground Truth', groundTruth)
-        cv2.imshow('Novel', novelView)
+    cv2.imwrite('visual/' + imagePath.replace('cam1_img/', ''), img)
+    cv2.imshow('Visualization', img)
+    # cv2.imshow('Ground Truth', groundTruth)
+    cv2.imshow('Novel', novelView)
 
 cv2.destroyAllWindows()
