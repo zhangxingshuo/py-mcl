@@ -24,7 +24,7 @@ from matplotlib import pyplot as plt
 from search import Searcher
 from pano import Panorama
 
-extension = '.jpg'
+extension = '.png'
 
 class Matcher(object):
 
@@ -315,51 +315,104 @@ class Matcher(object):
         
         return totalMatches, list(map(lambda x:x[1]/totalMatches, matches)), sorted_matches[-1]
 
-    def optRun(self, bestGuess):
-        '''optimizing run that only tragets a few panoramas'''
-        probsL = []
-        if self.alg != 'Color':
-            matches = []
-            # consider only 5 angles around bestGuess the rest sum up to 0.2 
-            bestAngle = bestGuess * 15
-            upThreshold = bestAngle + 30
-            lowThreshold = bestAngle - 30
-            # angleOfInterests = [bestAngle - 30, bestAngle -15, bestAngle, bestAngle + 15, bestAngle + 30 ]
-            for i in range(0, 375, 15):
-                if i >= lowThreshold or i <= upThreshold: 
-                    imagePath = self.data + '/angle' + str(i).zfill(3) + '.jpg'
-                    if i > 360:
-                        i = i % 360
-                    elif i < 0:
-                        i = i % 360
-                    if self.alg == 'SIFT':
-                        numMatches = self.SIFTMatch(imagePath)
-                    elif self.alg == 'SURF':
-                        numMatches = self.SURFMatch(imagePath)
-                    else:
-                        numMatches = self.ORBMatch(imagePath)
-                else:
-                    numMatches = 0
-                # print("\tFound %s matches" % numMatches)
-                matches.append((imagePath, numMatches))
+    # def optRun(self, bestGuess):
+    #     '''optimizing run that only tragets a few panoramas'''
+    #     probsL = []
+    #     if self.alg != 'Color':
+    #         matches = []
+    #         # consider only 5 angles around bestGuess the rest sum up to 0.2 
+    #         bestAngle = bestGuess * 15
+    #         upThreshold = bestAngle + 30
+    #         lowThreshold = bestAngle - 30
+    #         # angleOfInterests = [bestAngle - 30, bestAngle -15, bestAngle, bestAngle + 15, bestAngle + 30 ]
+    #         for i in range(0, 375, 15):
+    #             if i >= lowThreshold or i <= upThreshold: 
+    #                 imagePath = self.data + '/angle' + str(i).zfill(3) + '.jpg'
+    #                 if i > 360:
+    #                     i = i % 360
+    #                 elif i < 0:
+    #                     i = i % 360
+    #                 if self.alg == 'SIFT':
+    #                     numMatches = self.SIFTMatch(imagePath)
+    #                 elif self.alg == 'SURF':
+    #                     numMatches = self.SURFMatch(imagePath)
+    #                 else:
+    #                     numMatches = self.ORBMatch(imagePath)
+    #             else:
+    #                 numMatches = 0
+    #             # print("\tFound %s matches" % numMatches)
+    #             matches.append((imagePath, numMatches))
 
-            totalMatches = sum(list(map(lambda x: x[1], matches)))
+    #         totalMatches = sum(list(map(lambda x: x[1], matches)))
             
-            if totalMatches == 0:
-                totalMatches = 1
+    #         if totalMatches == 0:
+    #             totalMatches = 1
 
+    #     else:
+
+    #         results = self.colorSearch()
+    #         totalChiSquared = sum(list(map(lambda x: x[0], results)))
+    #         totalMatches = 300000./totalChiSquared
+    #         rawProbs = list(map(lambda x: (self.data + '/' + x[1], 200./x[0]), results)) # invert chi-squared
+    #         totalProb = sum(list(map(lambda x: x[1], rawProbs)))
+    #         rawMatches = list(map(lambda x: (x[0], x[1]/totalProb * totalMatches), rawProbs)) # normalize probabilities
+    #         matches = sorted(rawMatches, key=lambda x: int(x[0].replace('.jpg','').replace(self.data+'/angle','')))
+
+    #     sorted_matches = sorted(matches, key=lambda x: x[1])
+    #     return totalMatches, list(map(lambda x:x[1]/totalMatches, matches)), sorted_matches[-1]
+
+    def optRun(self, bestAngleIndex):
+        if bestAngleIndex is not None:
+            bestAngle = bestAngleIndex * 15
+            lower = bestAngle - 30
+            upper = bestAngle + 30
+            # optimized run
+            if self.alg != 'Color':
+                matches = []
+                for i in range(0, 375, 15):
+                    imagePath = self.data + '/angle' + str(i).zfill(3) + extension
+                    if lower >= 0 and upper <= 360:
+                        if i >= lower and i <= upper:
+                            # print('\tMatching %s ...' % imagePath)
+                            if self.alg == 'SIFT':
+                                numMatches = self.SIFTMatch(imagePath)
+                            elif self.alg == 'SURF':
+                                numMatches = self.SURFMatch(imagePath)
+                            else:
+                                numMatches = self.ORBMatch(imagePath)
+                        else:
+                            numMatches = 1
+                        # print("\tFound %s matches" % numMatches)
+                    else:
+                        if i >= lower % 360 or i <= upper % 360:
+                            if self.alg == 'SIFT':
+                                numMatches = self.SIFTMatch(imagePath)
+                            elif self.alg == 'SURF':
+                                numMatches = self.SURFMatch(imagePath)
+                            else:
+                                numMatches = self.ORBMatch(imagePath)
+                        else:
+                            numMatches = 1
+                    matches.append((imagePath, numMatches))
+
+                totalMatches = sum(list(map(lambda x: x[1], matches)))
+                if totalMatches == 0:
+                    totalMatches = 1
+
+            else:
+
+                results = self.colorSearch()
+                totalChiSquared = sum(list(map(lambda x: x[0], results)))
+                totalMatches = 300000./totalChiSquared
+                rawProbs = list(map(lambda x: (self.data + '/' + x[1], 200./x[0]), results)) # invert chi-squared
+                totalProb = sum(list(map(lambda x: x[1], rawProbs)))
+                rawMatches = list(map(lambda x: (x[0], x[1]/totalProb * totalMatches), rawProbs)) # normalize probabilities
+                matches = sorted(rawMatches, key=lambda x: int(x[0].replace(extension,'').replace(self.data+'/angle','')))
+
+            sorted_matches = sorted(matches, key=lambda x: x[1])
+            return totalMatches, list(map(lambda x:x[1]/totalMatches, matches)), sorted_matches[-1]
         else:
-
-            results = self.colorSearch()
-            totalChiSquared = sum(list(map(lambda x: x[0], results)))
-            totalMatches = 300000./totalChiSquared
-            rawProbs = list(map(lambda x: (self.data + '/' + x[1], 200./x[0]), results)) # invert chi-squared
-            totalProb = sum(list(map(lambda x: x[1], rawProbs)))
-            rawMatches = list(map(lambda x: (x[0], x[1]/totalProb * totalMatches), rawProbs)) # normalize probabilities
-            matches = sorted(rawMatches, key=lambda x: int(x[0].replace('.jpg','').replace(self.data+'/angle','')))
-
-        sorted_matches = sorted(matches, key=lambda x: x[1])
-        return totalMatches, list(map(lambda x:x[1]/totalMatches, matches)), sorted_matches[-1]
+            return self.run()
 
 if __name__ == '__main__':
     # ap = argparse.ArgumentParser()

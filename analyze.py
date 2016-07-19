@@ -85,15 +85,13 @@ class analyzer(object):
         previousProbs = []
         for i in range(self.numLocations):
             previousProbs.append([1, [1/75] * 25])
-        # previousProbs = [[1, [1/75] * 25 ], [1,[1/75] * 25 ] , [1,[1/75] * 25], 
-        #     [1, [1/75] * 25 ], [1, [1/75] * 25 ], [1, [1/75] * 25 ], [1, [1/75] * 25 ]]
+
         start = time.time()
-        # matcher = Matcher(self.method, width=self.w, height=self.h)
         probDict = self.readProb('rawP.txt')
         blurP = []
         for imagePath in glob.glob('cam1_img' + '/*' + extension):
             p = probDict[imagePath.replace('cam1_img/', '').replace(extension, '')]
-                        # Reading Blur
+            # Reading Blur
             blurFactor = self.Laplacian(imagePath)
 
             # Reading Command
@@ -120,8 +118,63 @@ class analyzer(object):
         self.blurP = blurP
         self.writeProb(self.blurP, 'out.txt', 'w')
         self.writeProb(self.bestGuess, 'bestGuess.txt', 'w')
-        self.writeCoord('coord.txt','w')
+        # self.writeCoord('coord.txt','w')
 
+        end = time.time()
+        print('Time elapsed: %0.1f' % (end-start))
+
+    def optP(self):
+        print('Creating indices...')
+        self.createIndex()
+        blurP = []
+        previousProbs = []
+        bestAngleIndex = None
+        for i in range(self.numLocations):
+            previousProbs.append([1, [1/75] * 25])
+        matcher = Matcher(self.method, width=self.w, height=self.h)
+        start = time.time()
+        print('Matching...')
+        for imagePath in glob.glob('cam1_img' + '/*' + extension):
+            p = []
+            matcher.setQuery(imagePath)
+            results = []
+            for i in range(self.numLocations):
+                matcher.setDirectory('map/' + str(i))
+                if self.method != 'Color':
+                    matcher.setIndex(self.indices[i])
+                else:
+                    matcher.setColorIndex(self.indices[i])
+                totalMatches, probL, _ = matcher.optRun(bestAngleIndex)
+                results.append([totalMatches, probL])
+
+            p.extend(results)  
+            print('\t' + imagePath)
+            blurFactor = self.Laplacian(imagePath)
+
+            # Reading Command
+            command = self.commands[imagePath.replace('cam1_img/', '').replace(extension, '')]
+
+            # Account for Command
+            actionAccount = self.accountCommand(command, previousProbs)
+
+            # Adjusting for Command
+            adjusted = self.prevWeight(actionAccount, p)
+
+            # Adjusting for Blur
+            adjusted = self.probUpdate(actionAccount, adjusted, blurFactor)
+
+            # Getting best guess
+            # this will get the max of the first variable
+            bestCircleIndex = adjusted.index(max(adjusted[0], adjusted[1], adjusted[2]))
+            bestAngleIndex = adjusted[bestCircleIndex][1].index(max(adjusted[bestCircleIndex][1]))
+            self.bestGuess.extend([[bestCircleIndex, bestAngleIndex]])
+            blurP.extend(adjusted)
+            previousProbs = adjusted
+            # print(imagePath)
+
+        self.blurP = blurP
+        self.writeProb(self.blurP, 'out.txt', 'w')
+        self.writeProb(self.bestGuess, 'bestGuess.txt', 'w')
         end = time.time()
         print('Time elapsed: %0.1f' % (end-start))
 
@@ -143,7 +196,6 @@ class analyzer(object):
         truePosition = []
         for i in range(self.numLocations):
             truePosition.append([0, []])
-        # truePosition = [[0, []], [0,[]], [0,[]], [0,[]], [0,[]], [0,[]], [0,[]]]
 
 
         for circleIndex in range(len(truePosition)):
@@ -173,17 +225,11 @@ class analyzer(object):
         '''this function weighted the probability list according to the blurriness factor'''
         currentWeight = 0.7
         previousWeight = 1- currentWeight
-        # if blurFactor > 200:
-        #     currentWeight = 0.85
-        # else:
-        #     currentWeight = (blurFactor / 200) * 0.85
-        # previousWeight = 1 - currentWeight
 
         # Assigning the weight to each list
         truePosition = []
         for i in range(self.numLocations):
             truePosition.append([0, []])
-        # truePosition = [[0, []], [0,[]] , [0,[]], [0,[]], [0,[]], [0,[]], [0,[]]]
 
         for circleIndex in range(len(truePosition)):
             currentCircle = currentP[circleIndex]
