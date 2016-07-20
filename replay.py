@@ -9,12 +9,13 @@ currentIndex = 0
 #     img = cv2.imread(imagePath, 0)
 #     var = cv2.Laplacian(img, cv2.CV_64F).var()
 #     return var
-extension = '.jpg'
-def readCoord(filename):
-    file = open(filename, 'r')
-    content = file.read().split('\n')[:-1]
-    coordinates = [list(map(int, coord.split(','))) for coord in content]
-    return coordinates
+extension = '.png'
+
+# def readCoord(filename):
+#     file = open(filename, 'r')
+#     content = file.read().split('\n')[:-1]
+#     coordinates = [list(map(int, coord.split(','))) for coord in content]
+#     return coordinates
 
 def copyTo(arr1, arr2, y, x):
     '''
@@ -53,7 +54,7 @@ def readCommand(filename):
     return commandDict
 
 
-coordinates = readCoord('coord.txt')
+# coordinates = readCoord('coord.txt')
 bestGuess = readBestGuess('bestGuess.txt')
 commands = readCommand('commands.txt')
 maxImg = len(commands)
@@ -64,11 +65,13 @@ while True:
     filename = str(currentIndex).zfill(4)
     visual = cv2.imread('visual/' + filename + extension)
     cv2.putText(visual, 'Algorithm Representation', (30,30), cv2.FONT_HERSHEY_COMPLEX, 1, (255,255,255))
-    g = cv2.imread('cam2_img/' + filename + '.jpg')
+    
+    # g = cv2.imread('cam2_img/' + filename + '.jpg')
+    # g = np.zeros((480, 640, 3), np.uint8)
 
-    groundTruth = cv2.flip(g, 1)
-    groundTruth = cv2.flip(groundTruth, 0)
-    cv2.putText(groundTruth, 'Ground Truth', (30,30), cv2.FONT_HERSHEY_COMPLEX, 1, (255,255,255))
+    # groundTruth = cv2.flip(g, 1)
+    # groundTruth = cv2.flip(groundTruth, 0)
+    # cv2.putText(groundTruth, 'Ground Truth', (30,30), cv2.FONT_HERSHEY_COMPLEX, 1, (255,255,255))
 
     novel = cv2.imread('cam1_img/' + filename + extension)
     novel = cv2.resize(novel, (640, 480))
@@ -96,7 +99,7 @@ while True:
     # cv2.imshow('Novel', novel)
     copyTo(img, visual, 0, 0)
     copyTo(img, novel, 480, 640)
-    copyTo(img, groundTruth, 0, 640)
+    # copyTo(img, groundTruth, 0, 640)
     copyTo(img, guess, 480, 0)
     cv2.imshow('Monte Carlo Localization', img)
     k = cv2.waitKey(0) & 0xFF
