@@ -22,7 +22,6 @@ import time
 from matplotlib import pyplot as plt
 
 from search import Searcher
-from pano import Panorama
 
 extension = '.png'
 
@@ -33,12 +32,8 @@ class Matcher(object):
     ######################
 
     def __init__(self, algorithm, index=None, width=800, height=600):
-        # self.image = cv2.imread(queryPath)
-        # self.image = cv2.bilateralFilter(self.image, 9, 75, 75)
         self.w = width
         self.h = height
-        # self.image = cv2.resize(self.image, (self.w, self.h))
-        # self.data = directory
         self.alg = algorithm
         self.index = index
 
@@ -58,55 +53,22 @@ class Matcher(object):
 
 
     ############################
-    ### Color-Based Matching ###
+    ### Index Initialization ###
     ############################
-
-    def createHistogram(self, image, bins=[8, 8, 8]):
-        '''
-        Creates a flattened 3D histogram.
-        '''
-
-        hist = cv2.calcHist([image], [0, 1, 2], None, bins, [0, 256, 0, 256, 0, 256])
-        hist = cv2.normalize(hist, hist, 0, 255, cv2.NORM_MINMAX)
-        return hist.flatten()
 
     def createColorIndex(self):
         '''
         Creates dictionary with keys as image names and histograms as values.
         '''
-        # print("Indexing: " + self.data + "...")
         index = {}
 
         for imagePath in glob.glob(self.data + "/*" + extension):
             filename = imagePath[imagePath.rfind("/") + 1:]
             image = cv2.imread(imagePath)
-            # print('\t%s' % imagePath)
             features = self.createHistogram(image)
             index[filename] = features
 
         return index
-
-    def colorSearch(self):
-        '''
-        Searches query image against index and returns the specified number of matches.
-        Results are in the format (chi-squared distance, image name).
-        '''
-
-        # image = cv2.imread(self.image)
-        # print("Querying: " + self.image + " ...")
-        searcher = Searcher(self.colorIndex)
-        queryFeatures = self.createHistogram(self.image)
-
-        results = searcher.search(queryFeatures)
-
-        # print("Matches found:")
-        # for j in range(len(results)):
-        #     (score, imageName) = results[j]
-        #     print("\t%d. %s : %.3f" % (j+1, imageName, score))
-
-        return results
-
-
 
     def createFeatureIndex(self):
         '''
@@ -129,6 +91,30 @@ class Matcher(object):
         return index
 
 
+    ############################
+    ### Color-Based Matching ###
+    ############################
+
+    def createHistogram(self, image, bins=[8, 8, 8]):
+        '''
+        Creates a flattened 3D histogram.
+        '''
+        hist = cv2.calcHist([image], [0, 1, 2], None, bins, [0, 256, 0, 256, 0, 256])
+        hist = cv2.normalize(hist, hist, 0, 255, cv2.NORM_MINMAX)
+        return hist.flatten()
+
+    def colorSearch(self):
+        '''
+        Searches query image against index and returns the specified number of matches.
+        Results are in the format (chi-squared distance, image name).
+        '''
+        searcher = Searcher(self.colorIndex)
+        queryFeatures = self.createHistogram(self.image)
+
+        results = searcher.search(queryFeatures)
+
+        return results
+
 
     #################################
     ### Image Matching Algorithms ###
@@ -139,8 +125,6 @@ class Matcher(object):
         Matches query against specified image using the Oriented FAST and Rotated BRIEF algorithm.
         Matching is done through Brute-Force.
         '''
-        # training = cv2.imread(imagePath)
-        # training = cv2.resize(training, (self.w, self.h))
 
         orb = cv2.ORB_create()
 
@@ -170,8 +154,6 @@ class Matcher(object):
         Matching is done with Fast Library for Approximate Nearest Neighbors.
         Lowe's ratio test is applied.
         '''
-        # training = cv2.imread(imagePath)
-        # training = cv2.resize(training, (self.w, self.h))
 
         surf = cv2.xfeatures2d.SURF_create()
 
@@ -202,33 +184,12 @@ class Matcher(object):
 
         return len(good)
 
-    # def writeMatches(self, method):
-    #     '''outputs the list of matched features in to txt files given the method'''
-    #     file = open('matched_features.txt', 'w')
-    #     if self.alg != 'Color':
-    #         matched = []
-    #         for i in range(0, 375, 15):
-    #             imagePath = self.data + '/angle' + str(i).zfill(3) + '.jpg'
-    #             # print('\tMatching %s ...' % imagePath)
-    #             if self.alg == 'SIFT':
-    #                 matched = self.SIFTMatch(imagePath)
-    #             elif self.alg == 'SURF':
-    #                 matched = self.SURFMatch(imagePath)
-    #             else:
-    #                 matched = self.ORBMatch(imagePath)
-    #             # print("\tFound %s matches" % numMatches)
-    #     for matchedPoint in matched:
-    #         file.write(str(matchedPoint) + )
-
-
     def SIFTMatch(self, imagePath, display_results=False):
         '''
         Performs a match using Scale-Invariant Feature Transform algorithm.
         Matching is done with Fast Library for Approximate Nearest Neighbors.
         Lowe's ratio test is applied.
         '''
-        # training = cv2.imread(imagePath)
-        # training = cv2.resize(training, (self.w, self.h))
 
         sift = cv2.xfeatures2d.SIFT_create()
 
@@ -256,23 +217,7 @@ class Matcher(object):
 
         return len(good)
 
-    def write(self, filename, mode):
-        file = open(filename, mode)
-        totalMatches, results, bestMatch = self.run()
-        file.write(str(totalMatches) + '\n')
-        file.write('[')
-        for prob in results[:len(results)-1]:
-            file.write(str(prob) + ', ')
-        file.write(str(results[-1]) + ']\n')
-
-        angle = int(bestMatch[0].replace(self.data,'').replace('/angle','').replace('.jpg',''))
-        Panorama(self.data, 100, 100, angle).write(self.data + '_panorama.jpg')
-
     def run(self):
-        # start = time.time()
-        # print('%s matching...' % self.alg)
-        # self.index = self.createFeatureIndex()
-        
         if self.alg != 'Color':
             matches = []
             for i in range(0, 375, 15):
@@ -292,7 +237,6 @@ class Matcher(object):
                 totalMatches = 1
 
         else:
-
             results = self.colorSearch()
             totalChiSquared = sum(list(map(lambda x: x[0], results)))
             totalMatches = 300000./totalChiSquared
@@ -302,64 +246,8 @@ class Matcher(object):
             matches = sorted(rawMatches, key=lambda x: int(x[0].replace(extension,'').replace(self.data+'/angle','')))
 
         sorted_matches = sorted(matches, key=lambda x: x[1])
-
-        # for j in range(1,6):
-        #     (imageName, score) = sorted_matches[-j]
-        #     print("%d. %s : %0.3f" % (j, imageName, score / totalMatches))
-
-        # print("Found %d total matches" % totalMatches)
-
-        # end = time.time()
-
-        # print('Time elapsed: %0.1f s' % (end-start))
         
         return totalMatches, list(map(lambda x:x[1]/totalMatches, matches)), sorted_matches[-1]
-
-    # def optRun(self, bestGuess):
-    #     '''optimizing run that only tragets a few panoramas'''
-    #     probsL = []
-    #     if self.alg != 'Color':
-    #         matches = []
-    #         # consider only 5 angles around bestGuess the rest sum up to 0.2 
-    #         bestAngle = bestGuess * 15
-    #         upThreshold = bestAngle + 30
-    #         lowThreshold = bestAngle - 30
-    #         # angleOfInterests = [bestAngle - 30, bestAngle -15, bestAngle, bestAngle + 15, bestAngle + 30 ]
-    #         for i in range(0, 375, 15):
-    #             if i >= lowThreshold or i <= upThreshold: 
-    #                 imagePath = self.data + '/angle' + str(i).zfill(3) + '.jpg'
-    #                 if i > 360:
-    #                     i = i % 360
-    #                 elif i < 0:
-    #                     i = i % 360
-    #                 if self.alg == 'SIFT':
-    #                     numMatches = self.SIFTMatch(imagePath)
-    #                 elif self.alg == 'SURF':
-    #                     numMatches = self.SURFMatch(imagePath)
-    #                 else:
-    #                     numMatches = self.ORBMatch(imagePath)
-    #             else:
-    #                 numMatches = 0
-    #             # print("\tFound %s matches" % numMatches)
-    #             matches.append((imagePath, numMatches))
-
-    #         totalMatches = sum(list(map(lambda x: x[1], matches)))
-            
-    #         if totalMatches == 0:
-    #             totalMatches = 1
-
-    #     else:
-
-    #         results = self.colorSearch()
-    #         totalChiSquared = sum(list(map(lambda x: x[0], results)))
-    #         totalMatches = 300000./totalChiSquared
-    #         rawProbs = list(map(lambda x: (self.data + '/' + x[1], 200./x[0]), results)) # invert chi-squared
-    #         totalProb = sum(list(map(lambda x: x[1], rawProbs)))
-    #         rawMatches = list(map(lambda x: (x[0], x[1]/totalProb * totalMatches), rawProbs)) # normalize probabilities
-    #         matches = sorted(rawMatches, key=lambda x: int(x[0].replace('.jpg','').replace(self.data+'/angle','')))
-
-    #     sorted_matches = sorted(matches, key=lambda x: x[1])
-    #     return totalMatches, list(map(lambda x:x[1]/totalMatches, matches)), sorted_matches[-1]
 
     def optRun(self, bestAngleIndex):
         if bestAngleIndex is not None:
@@ -382,7 +270,7 @@ class Matcher(object):
                                 numMatches = self.ORBMatch(imagePath)
                         else:
                             numMatches = 1
-                        # print("\tFound %s matches" % numMatches)
+
                     else:
                         if i >= lower % 360 or i <= upper % 360:
                             if self.alg == 'SIFT':
@@ -415,15 +303,5 @@ class Matcher(object):
             return self.run()
 
 if __name__ == '__main__':
-    # ap = argparse.ArgumentParser()
-    # ap.add_argument('-q', '--query', required=True,
-    #     help='Path to query image')
-    # ap.add_argument('-d', '--dataset', required=True,
-    #     help='Path to directory of training images')
-    # ap.add_argument('-a', '--algorithm', required=True,
-    #     help='Algorithm to use for matching')
-    # args = vars(ap.parse_args())
 
     print(__doc__)
-
-    # Matcher(args['query'], args['dataset'], args['algorithm']).run()
