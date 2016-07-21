@@ -42,12 +42,15 @@ class analyzer(object):
     def createIndex(self):
         ''' This function creates indexes of feature '''
         matcher = Matcher(self.method, width=self.w, height=self.h)
-        for i in range(self.numLocations):
-            matcher.setDirectory('map/' + str(i))
-            if self.method != 'Color':
-                self.indices[i] = matcher.createFeatureIndex()
-            else:
-                self.indices[i] = matcher.createColorIndex()
+        if self.method != 'BOW':
+            for i in range(self.numLocations):
+                matcher.setDirectory('map/' + str(i))
+                if self.method != 'Color':
+                    self.indices[i] = matcher.createFeatureIndex()
+                else:
+                    self.indices[i] = matcher.createColorIndex()
+        else:
+            matcher.writeIndices()
 
     ####################
     ### Main Methods ###
@@ -55,11 +58,12 @@ class analyzer(object):
 
     def createRawP(self):
         ''' This function generates a list of raw probabilities directly from image matching'''
-        self.createIndex()
+        if self.method != 'BOW':
+            print('Creating indices...')
+            self.createIndex()
         start = time.time()
         p = []
         matcher = Matcher(self.method, width=self.w, height=self.h)
-
         print('Matching...')
         for imagePath in glob.glob('cam1_img' + '/*' + extension):
             matcher.setQuery(imagePath)
@@ -70,7 +74,7 @@ class analyzer(object):
                     matcher.setIndex(self.indices[i])
                 else:
                     matcher.setColorIndex(self.indices[i])
-                totalMatches, probL, _ = matcher.run()
+                totalMatches, probL = matcher.run()
                 results.append([totalMatches, probL])
 
             p.extend(results)  
@@ -89,52 +93,58 @@ class analyzer(object):
 
         start = time.time()
         probDict = self.readProb('rawP.txt')
+        # print(probDict)
         blurP = []
-
         for imagePath in glob.glob('cam1_img' + '/*' + extension):
             p = probDict[imagePath.replace('cam1_img/', '').replace(extension, '')]
-
             # Reading Blur
             blurFactor = self.Laplacian(imagePath)
+
             # Reading Command
             command = self.commands[imagePath.replace('cam1_img/', '').replace(extension, '')]
+
             # Account for Command
             actionAccount = self.accountCommand(command, previousProbs)
+
             # Adjusting for Command
             adjusted = self.prevWeight(actionAccount, p)
+
             # Adjusting for Blur
             adjusted = self.probUpdate(actionAccount, adjusted, blurFactor)
 
             # Getting best guess
             # this will get the max of the first variable
-            bestCircleIndex = adjusted.index(max(adjusted))
+            # bestCircleIndex = adjusted.index(max(adjusted[0], adjusted[1], adjusted[2]))
+            bestCircles = []
+            for i in range(self.numLocations):
+                bestCircles.append(adjusted[i])
+            bestCircleIndex = adjusted.index(max(bestCircles))
             bestAngleIndex = adjusted[bestCircleIndex][1].index(max(adjusted[bestCircleIndex][1]))
             self.bestGuess.extend([[bestCircleIndex, bestAngleIndex]])
             blurP.extend(adjusted)
             previousProbs = adjusted
-            print('\t' + imagePath)
+            print(imagePath)
 
         self.blurP = blurP
         self.writeProb(self.blurP, 'out.txt', 'w')
         self.writeProb(self.bestGuess, 'bestGuess.txt', 'w')
+        # self.writeCoord('coord.txt','w')
 
         end = time.time()
         print('Time elapsed: %0.1f' % (end-start))
 
     def optP(self):
-        print('Creating indices...')
-        self.createIndex()
-
+        if self.method != 'BOW':
+            print('Creating indices...')
+            self.createIndex()
         blurP = []
         previousProbs = []
         bestAngleIndex = None
         bestCircleIndex = None
         for i in range(self.numLocations):
             previousProbs.append([1, [1/75] * 25])
-
         matcher = Matcher(self.method, width=self.w, height=self.h)
         start = time.time()
-
         print('Matching...')
         for imagePath in glob.glob('cam1_img' + '/*' + extension):
             p = []
@@ -147,7 +157,7 @@ class analyzer(object):
                         matcher.setIndex(self.indices[i])
                     else:
                         matcher.setColorIndex(self.indices[i])
-                    totalMatches, probL, _ = matcher.optRun(bestAngleIndex)
+                    totalMatches, probL = matcher.optRun(bestAngleIndex)
                     results.append([totalMatches, probL])
             else:
                 lower = bestCircleIndex - 2
@@ -159,7 +169,7 @@ class analyzer(object):
                             matcher.setIndex(self.indices[i])
                         else:
                             matcher.setColorIndex(self.indices[i])
-                        totalMatches, probL, _ = matcher.optRun(bestAngleIndex)
+                        totalMatches, probL = matcher.optRun(bestAngleIndex)
                         results.append([totalMatches, probL])
                     else:
                         results.append([1, [1/75] * 25])
@@ -167,16 +177,20 @@ class analyzer(object):
 
             p.extend(results)  
             print('\t' + imagePath)
-            
             blurFactor = self.Laplacian(imagePath)
+
             # Reading Command
             command = self.commands[imagePath.replace('cam1_img/', '').replace(extension, '')]
+
             # Account for Command
             actionAccount = self.accountCommand(command, previousProbs)
+
             # Adjusting for Command
             adjusted = self.prevWeight(actionAccount, p)
+
             # Adjusting for Blur
             adjusted = self.probUpdate(actionAccount, adjusted, blurFactor)
+
 
             # Getting best guess
             # this will get the max of the first variable
@@ -185,11 +199,11 @@ class analyzer(object):
             self.bestGuess.extend([[bestCircleIndex, bestAngleIndex]])
             blurP.extend(adjusted)
             previousProbs = adjusted
+            # print(imagePath)
 
         self.blurP = blurP
         self.writeProb(self.blurP, 'out.txt', 'w')
         self.writeProb(self.bestGuess, 'bestGuess.txt', 'w')
-
         end = time.time()
         print('Time elapsed: %0.1f' % (end-start))
 
@@ -212,6 +226,7 @@ class analyzer(object):
         for i in range(self.numLocations):
             truePosition.append([0, []])
 
+
         for circleIndex in range(len(truePosition)):
             currentCircle = currentP[circleIndex]
             previousCircle = previousP[circleIndex]
@@ -223,6 +238,7 @@ class analyzer(object):
             # Each probability list
             current_probList = currentCircle[1]
             previous_probList = previousCircle[1]
+
 
             truePosition[circleIndex][0] = (currentWeight * current_num_matches + previousWeight * previous_num_matches)
             for probIndex in range(len(currentP[circleIndex][1])): 
@@ -236,7 +252,7 @@ class analyzer(object):
 
     def prevWeight(self, previousP, currentP):
         '''this function weighted the probability list according to the blurriness factor'''
-        currentWeight = 0.5
+        currentWeight = 0.7
         previousWeight = 1- currentWeight
 
         # Assigning the weight to each list
@@ -280,7 +296,7 @@ class analyzer(object):
         elif command == 'f':
             bestCircleIndex = previousP.index(max(previousP))
             bestAngleIndex = previousP[bestCircleIndex][1].index(max(previousP[bestCircleIndex][1]))
-            factor = 0.2 * abs(math.sin(bestAngleIndex*15 * 180/math.pi))
+            factor = 0.05 * abs(math.sin(bestAngleIndex*15 * 180/math.pi))
             if bestCircleIndex < self.numLocations - 1 and bestAngleIndex*15 < 180 and bestAngleIndex > 0:
                 copy[bestCircleIndex+1][0] *= (1 + factor)
             elif bestCircleIndex > 0 and bestAngleIndex*15 > 180 and bestAngleIndex*15 < 360: 
@@ -330,9 +346,38 @@ class analyzer(object):
         coordinates = [list(map(int, coord.split(','))) for coord in content]
         return coordinates
 
+    # def readProb(self, filename):
+    #     '''this function reads the content of a txt file, turn the data into  dictionaries of 
+    #     circles'''
+    #     file = open(filename, 'r') 
+    #     content = file.read().split('\n')[:-1]
+    #     probDict = {}
+    #     counter = 0
+    #     for i in range(len(content))[::6]:
+    #         name = str(counter).zfill(4)
+    #         L1 = list(map(float, content[i+1].replace('[','').replace(']','').split(',')))
+    #         L2 = list(map(float, content[i+3].replace('[','').replace(']','').split(',')))
+    #         L3 = list(map(float, content[i+5].replace('[','').replace(']','').split(',')))
+    #         probDict[name] = [[float(content[i]), L1], [float(content[i+2]), L2], [float(content[i+4]), L3]]
+    #         counter += 1
+    #     return probDict 
+
     def readProb(self, filename):
         '''this function reads the content of a txt file, turn the data into  dictionaries of 
         circles'''
+        # file = open(filename, 'r') 
+        # content = file.read().split('\n')[:-1]
+        # probDict = {}
+        # counter = 0
+        # for i in range(len(content))[::6]:
+        #     name = str(counter).zfill(4)
+        #     L1 = list(map(float, content[i+1].replace('[','').replace(']','').split(',')))
+        #     L2 = list(map(float, content[i+3].replace('[','').replace(']','').split(',')))
+        #     L3 = list(map(float, content[i+5].replace('[','').replace(']','').split(',')))
+        #     probDict[name] = [[float(content[i]), L1], [float(content[i+2]), L2], [float(content[i+4]), L3]]
+        #     counter += 1
+        # return probDict
+
         file = open(filename, 'r')
         raw_content = file.read().split('\n')[:-1]
         raw_chunks = [raw_content[i:i+2] for i in range(0, len(raw_content), 2)]

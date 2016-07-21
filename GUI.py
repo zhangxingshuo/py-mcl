@@ -15,6 +15,8 @@ class Circle(object):
         self.y = y
         self.folder = folder
         self.color = color
+        # self.panoWindow = self.folder + " panorama"
+        # self.pano = cv2.imread(self.folder + "_panorama.jpg")
 
     def draw(self, image):
         cv2.circle(image, (self.x, self.y), self.r, self.color, -1)
@@ -81,6 +83,7 @@ def getArrows(Cir, intervals):
 
 def drawArrows(arrowL):
     ''' this function initialize all the arrows. All grey with length 1'''
+    # arrowL = getArrow(Circle, interval)
     for arrow in arrowL:
         arrow.draw(img)
 
@@ -100,6 +103,9 @@ def resetArrow(arrowL):
 def drawCircle(circleL):
     for circle in circleL:
         circle.draw(img) 
+
+# def normalize(prob):
+#     return [float(i)/sum(prob) for i in prob]
 
 def illustrateProb(circle, arrowsL, probsL):
     '''circleL is the list of circles in one region, and arrowsL are the 
@@ -135,7 +141,6 @@ def illustrateProb(circle, arrowsL, probsL):
             setArrow(this_circles_arrows, j, 1, color, mult)
 
 def readProb(filename):
-
     file = open(filename, 'r')
     raw_content = file.read().split('\n')[:-1]
     raw_chunks = [raw_content[i:i+2] for i in range(0, len(raw_content), 2)]
@@ -181,17 +186,15 @@ def Laplacian(imagePath):
     var = cv2.Laplacian(img, cv2.CV_64F).var()
     return var
 
-def initiateCircle():
+def initializeCircle():
     circles = [None] * NUM_LOCATIONS
     for i in range(NUM_LOCATIONS):
         circles[i] = Circle(50, 141 + 150 * i, 221, 'map/'+str(i), [150, 150, 150])
     return circles
 
-# Initiate Screen
+# Initialize Screen
 cv2.namedWindow('GUI')  
-
-# Initiating Circles and Matches
-circles = initiateCircle()
+circles = initializeCircle()
 
 arrows = []
 for circle in circles:
@@ -206,6 +209,7 @@ bestGuess = readBestGuess('bestGuess.txt')
 
 # Outputting the Probability
 
+
 for imagePath in glob.glob('cam1_img' + '/*' + extension):
     # Initiating views
     img = np.zeros((480,200 + 150 * NUM_LOCATIONS,3), np.uint8)
@@ -218,7 +222,6 @@ for imagePath in glob.glob('cam1_img' + '/*' + extension):
     # Accounting for Blur factor 
     blurFactor = Laplacian(imagePath)
     illustrateProb(circles, arrows, p)
-
 
     bestCircleIndex = bestGuess[int(imagePath.replace('cam1_img/', '').replace(extension, ''))][0]
     bestArrowIndex = bestGuess[int(imagePath.replace('cam1_img/', '').replace(extension, ''))][1]
@@ -236,7 +239,6 @@ for imagePath in glob.glob('cam1_img' + '/*' + extension):
     cv2.putText(img, str(blurFactor), (100, 100), cv2.FONT_HERSHEY_COMPLEX, 1, (0,0,255), 2)
 
     cv2.imwrite('visual/' + imagePath.replace('cam1_img/', ''), img)
-    cv2.imshow('Visualization', img)
-    cv2.imshow('Novel', novelView)
+    print('Writing %s...' %  imagePath.replace('cam1_img/', ''))
 
 cv2.destroyAllWindows()
