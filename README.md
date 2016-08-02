@@ -87,3 +87,5 @@ Ciante Jones: cjjones@hmc.edu
 Chi-Yen Lee: johlee@hmc.edu
 
 Andy Zhang: axzhang@hmc.edu
+
+Professor Zach Dodds: zdodds@hmc.edu
