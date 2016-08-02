@@ -47,7 +47,7 @@ To run the Monte Carlo Localization algorithm, simply run
 
 `>> analyzer.processRaw()`
 
-Note that this does not do any matching; rather, it reads from the `rawP.txt` created in the step before. Thus, one could store different output files to save time and processing power. 
+Note that this does not do any matching; rather, it reads from the `rawP.txt` created in the step before. Thus, one could store different output files to save time and processing power. This method creates a file called `out.txt`, which has the adjusted probability lists.
 
 The algorithm first measures the sharpness of the image using the variance of the Laplacian, a method described [here](http://www.pyimagesearch.com/2015/09/07/blur-detection-with-opencv/). It assigns a weight to the current update proportional to the variance of the Laplacian. Next, it adjusts the particles according to the command that is read from `commands.txt` using Python list splicing. Lastly, the previous generation is factored into the current update. 
 
@@ -55,4 +55,35 @@ To visualize the algorithm, run
 
 `python GUI.py`
 
-which writes visualization images to a folder called `visual` in the root directory. 
+which reads `out.txt` and writes visualization images to a folder called `visual` in the root directory. 
+
+## Optimization
+This implementation provides several optimzation methods to speed up image retrieval. The first method is DOR (Dynamically Optimized Retrieval), which works by only considering the nearest particles and assigning small, non-zero probabilities to the other particles. This method is run using by calling
+
+`>> analyzer.optP()`
+
+instead of creating the raw output file and processing the raw output file. This also writes to `out.txt`. 
+
+Another method is Bag-of-Words, which uses machine learning and natural language processing techniques to speed up image retrieval. Features are extracted from an image in the map, and clustered using k-means clustering. Clusters are transformed into vectors using tf-idf vectorization and stored as visual words in a dictionary. Each location in the map has a dictionary associated with it, stored in a file with the extension `.pkl` in the `map` folder of the root directory. 
+
+To use Bag-of-Words, initialize the dictionaries.
+```
+python -i Matcher.py
+>> matcher = Matcher('BOW')
+>> matcher.writeIndices()
+```
+Next, run 
+```
+python -i analyze.py
+>> analyzer = analyzer('BOW',320,240)
+```
+and follow the above steps outlined in the above section. Note that one cannot combine DOR and BOW, as they are mutually exclusive.
+
+## Credits
+Harvey Mudd College Computer Science REU
+
+Ciante Jones: cjjones@hmc.edu
+
+Chi-Yen Lee: johlee@hmc.edu
+
+Andy Zhang: axzhang@hmc.edu
