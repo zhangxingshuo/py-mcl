@@ -1,5 +1,5 @@
-# Monte Carlo Localization
-Monte Carlo Localization implemented in Python.
+# Visual Monte Carlo Localization
+Visual Monte Carlo Localization implemented in Python.
 
 Provides support for ORB, SIFT, and SURF image matching algorithms, with addition of optimization techniques such as DOR (Dynamically Optimized Retrieval) and BOW (Bag-of-Words)
 
