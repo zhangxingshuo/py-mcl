@@ -7,11 +7,15 @@ options for parameters such as image size and the type
 of image matching, e.g. color-based, SIFT, SURF, ORB,
 etc.
 
+Also included are optimization techniques such as Bag-of-
+Words and k-means clustering, as well as DOR, a dynamically
+optimized retrieval algorithm for visual particle filters.
+
 Usage:
 ------
     python Matcher.py -q [<query image>] -d [<directory>] -a [<algorithm>]
 
-    Viable algorithms are ORB, SIFT, and SURF.
+    Viable algorithms are ORB, SIFT, SURF, and BOW.
 '''
 
 import cv2
@@ -73,7 +77,6 @@ class Matcher(object):
         '''
         Creates dictionary with keys as image names and histograms as values.
         '''
-        # print("Indexing: " + self.data + "...")
         index = {}
 
         for imagePath in glob.glob(self.data + "/*" + extension):
@@ -172,7 +175,6 @@ class Matcher(object):
         orb = cv2.ORB_create()
 
         kp1, des1 = orb.detectAndCompute(self.image, None)
-        # kp2, des2 = orb.detectAndCompute(training, None)
         kp2, des2 = self.index[imagePath]
 
         bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
@@ -266,7 +268,6 @@ class Matcher(object):
         sift = cv2.xfeatures2d.SIFT_create()
 
         kp1, des1 = sift.detectAndCompute(self.image, None)
-        # kp2, des2 = sift.detectAndCompute(training, None)
         kp2, des2 = self.index[imagePath]
 
         FLANN_INDEX_KDTREE = 0
@@ -314,7 +315,6 @@ class Matcher(object):
                     numMatches = self.SURFMatch(imagePath)
                 else:
                     numMatches = self.ORBMatch(imagePath)
-                # print("\tFound %s matches" % numMatches)
                 matches.append((imagePath, numMatches))
 
             totalMatches = sum(list(map(lambda x: x[1], matches)))
@@ -349,7 +349,6 @@ class Matcher(object):
                     imagePath = self.data + '/angle' + str(i).zfill(3) + extension
                     if lower >= 0 and upper <= 360:
                         if i >= lower and i <= upper:
-                            # print('\tMatching %s ...' % imagePath)
                             if self.alg == 'SIFT':
                                 numMatches = self.SIFTMatch(imagePath)
                             elif self.alg == 'SURF':
@@ -358,7 +357,6 @@ class Matcher(object):
                                 numMatches = self.ORBMatch(imagePath)
                         else:
                             numMatches = 1
-                        # print("\tFound %s matches" % numMatches)
                     else:
                         if i >= lower % 360 or i <= upper % 360:
                             if self.alg == 'SIFT':
