@@ -21,7 +21,6 @@ import time
 from matplotlib import pyplot as plt
 from sklearn.externals import joblib
 from search import Searcher
-from pano import Panorama
 
 from scipy.cluster.vq import *
 
@@ -36,12 +35,8 @@ class Matcher(object):
     ######################
 
     def __init__(self, algorithm, index=None, width=800, height=600):
-        # self.image = cv2.imread(queryPath)
-        # self.image = cv2.bilateralFilter(self.image, 9, 75, 75)
         self.w = width
         self.h = height
-        # self.image = cv2.resize(self.image, (self.w, self.h))
-        # self.data = directory
         self.alg = algorithm
         self.index = index
         self.numWords = 10000

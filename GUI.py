@@ -15,8 +15,6 @@ class Circle(object):
         self.y = y
         self.folder = folder
         self.color = color
-        # self.panoWindow = self.folder + " panorama"
-        # self.pano = cv2.imread(self.folder + "_panorama.jpg")
 
     def draw(self, image):
         cv2.circle(image, (self.x, self.y), self.r, self.color, -1)
@@ -57,9 +55,7 @@ class Arrow(object):
         self.color = co
 
     def draw(self, image):
-        # print (self.color)
         cv2.arrowedLine(image, (self.circle.x, self.circle.y), (self.x, self.y), self.color, self.size)
-        # cv2.arrowedLine(image, (self.circle.x,self.circle.y), (100,100), (50, 50, 50), 10)
 
 
 
@@ -104,13 +100,10 @@ def drawCircle(circleL):
     for circle in circleL:
         circle.draw(img) 
 
-# def normalize(prob):
-#     return [float(i)/sum(prob) for i in prob]
 
 def illustrateProb(circle, arrowsL, probsL):
     '''circleL is the list of circles in one region, and arrowsL are the 
-    corresponding circles'''
-    
+    corresponding circles''' 
     minColor = 0
     maxColor = 255
     diff = maxColor - minColor
@@ -200,15 +193,12 @@ arrows = []
 for circle in circles:
     arrows.append(getArrows(circle, 25))
 
-method = 'SURF'
-
 commandList = readCommand('commands.txt')
 probDict = readProb('out.txt')
 coordinates = readCoord('coord.txt')
 bestGuess = readBestGuess('bestGuess.txt')
 
 # Outputting the Probability
-
 
 for imagePath in glob.glob('cam1_img' + '/*' + extension):
     # Initiating views

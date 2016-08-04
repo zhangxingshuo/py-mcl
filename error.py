@@ -86,8 +86,6 @@ def modalMetric():
         angle += 90
         if angle <= 0:
             angle += 360
-        # print (angle)
-        # print ("best: " + str(bestGuessAngle))
         if bestGuessAngle == 0 and angle > 300:
             bestGuessAngle = 360
         elif bestGuessAngle == 360 and angle < 60:
