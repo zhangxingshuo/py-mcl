@@ -1,3 +1,14 @@
+'''
+Panorama Creation
+=================
+
+Creates panorama given dataset of images.
+
+Usage:
+------
+    python pano.py -d [<image folder>]
+'''
+
 import cv2
 import numpy as np 
 import argparse
