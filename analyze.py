@@ -14,6 +14,9 @@ Corrects for motion blur by weighing each update
 proportional to the variance of the Laplacian. Also
 has a motion model to shift the particles according to
 the motion of the camera. 
+
+See https://github.com/zhangxingshuo/py-mcl for 
+documentation and usage information.
 '''
 
 import cv2
@@ -40,7 +43,9 @@ class analyzer(object):
         self.bestGuess = []
 
     def createIndex(self):
-        ''' This function creates indexes of feature '''
+        """
+        Create the color or feature indices, depending on the method.
+        """
         matcher = Matcher(self.method, width=self.w, height=self.h)
         if self.method != 'BOW':
             for i in range(self.numLocations):
@@ -57,14 +62,19 @@ class analyzer(object):
     ####################
 
     def createRawP(self):
-        ''' This function generates a list of raw probabilities directly from image matching'''
+        """
+        This function generates a list of raw probabilities directly from image matching and
+        stores it in a file called rawP.txt
+        """
         if self.method != 'BOW':
             print('Creating indices...')
             self.createIndex()
+
         start = time.time()
         p = []
         matcher = Matcher(self.method, width=self.w, height=self.h)
         print('Matching...')
+
         for imagePath in glob.glob('cam1_img' + '/*' + extension):
             matcher.setQuery(imagePath)
             results = []
@@ -86,41 +96,44 @@ class analyzer(object):
         print('Time elapsed: %0.1f' % (end-start))
 
     def processRaw(self):
-        '''this function processed the raw function'''
+        """
+        This function processes the raw data from rawP.txt, which is generated
+        from the createRawP function
+        """
+
+        # initialize list of probabilities
         previousProbs = []
         for i in range(self.numLocations):
             previousProbs.append([1, [1/75] * 25])
 
         start = time.time()
         probDict = self.readProb('rawP.txt')
-        # print(probDict)
         blurP = []
+
         for imagePath in glob.glob('cam1_img' + '/*' + extension):
+            # Read probability list from the raw output file
             p = probDict[imagePath.replace('cam1_img/', '').replace(extension, '')]
-            # Reading Blur
-            blurFactor = self.Laplacian(imagePath)
 
-            # Reading Command
+            # Read and account for the command
             command = self.commands[imagePath.replace('cam1_img/', '').replace(extension, '')]
-
-            # Account for Command
             actionAccount = self.accountCommand(command, previousProbs)
 
-            # Adjusting for Command
+            # Weight and account 
             adjusted = self.prevWeight(actionAccount, p)
 
-            # Adjusting for Blur
+            # Calculate and adjust for blur          
+            blurFactor = self.Laplacian(imagePath)
             adjusted = self.probUpdate(actionAccount, adjusted, blurFactor)
 
-            # Getting best guess
-            # this will get the max of the first variable
-            # bestCircleIndex = adjusted.index(max(adjusted[0], adjusted[1], adjusted[2]))
             bestCircles = []
             for i in range(self.numLocations):
                 bestCircles.append(adjusted[i])
+
+            # Calculate angle and position
             bestCircleIndex = adjusted.index(max(bestCircles))
             bestAngleIndex = adjusted[bestCircleIndex][1].index(max(adjusted[bestCircleIndex][1]))
             self.bestGuess.extend([[bestCircleIndex, bestAngleIndex]])
+
             blurP.extend(adjusted)
             previousProbs = adjusted
             print(imagePath)
@@ -128,24 +141,34 @@ class analyzer(object):
         self.blurP = blurP
         self.writeProb(self.blurP, 'out.txt', 'w')
         self.writeProb(self.bestGuess, 'bestGuess.txt', 'w')
-        # self.writeCoord('coord.txt','w')
 
         end = time.time()
         print('Time elapsed: %0.1f' % (end-start))
 
     def optP(self):
+        """
+        Dynamically Optimized Retrieval (DOR), which works by only considering the nearest particles
+        to the current position and angle, and assigning small non-zero probabilities to the other
+        particles
+        """
+
         if self.method != 'BOW':
             print('Creating indices...')
             self.createIndex()
+
         blurP = []
         previousProbs = []
         bestAngleIndex = None
         bestCircleIndex = None
+
+        # initialize probability list
         for i in range(self.numLocations):
             previousProbs.append([1, [1/75] * 25])
+
         matcher = Matcher(self.method, width=self.w, height=self.h)
         start = time.time()
         print('Matching...')
+
         for imagePath in glob.glob('cam1_img' + '/*' + extension):
             p = []
             matcher.setQuery(imagePath)
@@ -157,11 +180,17 @@ class analyzer(object):
                         matcher.setIndex(self.indices[i])
                     else:
                         matcher.setColorIndex(self.indices[i])
+
+                    # Call the optimized image matching algorithm in Matcher
                     totalMatches, probL = matcher.optRun(bestAngleIndex)
                     results.append([totalMatches, probL])
+
             else:
+
+                # Only consider the positions that are 2 locations away from current position
                 lower = bestCircleIndex - 2
                 upper = bestCircleIndex + 2
+
                 for i in range(self.numLocations):
                     if i >= lower and i <= upper:
                         matcher.setDirectory('map/' + str(i))
@@ -177,29 +206,24 @@ class analyzer(object):
 
             p.extend(results)  
             print('\t' + imagePath)
-            blurFactor = self.Laplacian(imagePath)
 
-            # Reading Command
+            # Read and account for command
             command = self.commands[imagePath.replace('cam1_img/', '').replace(extension, '')]
-
-            # Account for Command
             actionAccount = self.accountCommand(command, previousProbs)
 
-            # Adjusting for Command
+            # Weight the previous generation of probabilities
             adjusted = self.prevWeight(actionAccount, p)
 
             # Adjusting for Blur
+            blurFactor = self.Laplacian(imagePath)
             adjusted = self.probUpdate(actionAccount, adjusted, blurFactor)
 
-
-            # Getting best guess
-            # this will get the max of the first variable
+            # Calculate position and angle
             bestCircleIndex = adjusted.index(max(adjusted))
             bestAngleIndex = adjusted[bestCircleIndex][1].index(max(adjusted[bestCircleIndex][1]))
             self.bestGuess.extend([[bestCircleIndex, bestAngleIndex]])
             blurP.extend(adjusted)
             previousProbs = adjusted
-            # print(imagePath)
 
         self.blurP = blurP
         self.writeProb(self.blurP, 'out.txt', 'w')
@@ -213,7 +237,10 @@ class analyzer(object):
     ############################
 
     def probUpdate(self, previousP, currentP, blurFactor):
-        '''this function weighted the probability list according to the blurriness factor'''
+        """
+        Weigh the current generation proportional to the blur factor, which
+        is calculated using the variance of the Laplacian operator.
+        """
         currentWeight = 0
         if blurFactor > 200:
             currentWeight = 0.85
@@ -225,7 +252,6 @@ class analyzer(object):
         truePosition = []
         for i in range(self.numLocations):
             truePosition.append([0, []])
-
 
         for circleIndex in range(len(truePosition)):
             currentCircle = currentP[circleIndex]
@@ -239,7 +265,6 @@ class analyzer(object):
             current_probList = currentCircle[1]
             previous_probList = previousCircle[1]
 
-
             truePosition[circleIndex][0] = (currentWeight * current_num_matches + previousWeight * previous_num_matches)
             for probIndex in range(len(currentP[circleIndex][1])): 
 
@@ -251,7 +276,9 @@ class analyzer(object):
         return truePosition
 
     def prevWeight(self, previousP, currentP):
-        '''this function weighted the probability list according to the blurriness factor'''
+        """
+        Weight the previous generation by a pre-determined amount
+        """
         currentWeight = 0.7
         previousWeight = 1- currentWeight
 
@@ -272,7 +299,6 @@ class analyzer(object):
             current_probList = currentCircle[1]
             previous_probList = previousCircle[1]
 
-
             truePosition[circleIndex][0] = (currentWeight * current_num_matches + previousWeight * previous_num_matches)
             for probIndex in range(len(currentP[circleIndex][1])): 
 
@@ -284,15 +310,21 @@ class analyzer(object):
         return truePosition
 
     def accountCommand(self, command, previousP):
-        '''this funciton accounts for the command robot is given at the moment'''
-        # Left
+        """
+        Shift particles according to the current command
+        """
+        # Left -- rotate all particles counterclockwise by 15 degrees
         copy = previousP[:]
         if command == 'l':
             for circles in copy:
                 circles[1] = circles[1][1:] + circles[1][0:1]
+
+        # Right -- rotate all particles clockwise by 15 degrees
         elif command == 'r':
             for circles in copy:
                 circles[1] = circles[1][-1:] + circles[1][0:-1]
+
+        # Forward -- add more weight to the next location
         elif command == 'f':
             bestCircleIndex = previousP.index(max(previousP))
             bestAngleIndex = previousP[bestCircleIndex][1].index(max(previousP[bestCircleIndex][1]))
@@ -309,7 +341,7 @@ class analyzer(object):
     ###################################
 
     def writeCoord(self, filename, mode):
-        '''this function writes out the coordinate of the robot to a txt file'''
+        '''this function writes out the coordinates of the robot to a txt file'''
         file = open(filename, mode)
         for imagePath in glob.glob('cam2_img' + '/*.jpg'):
             position, orientation = self.trackRobot(imagePath)
@@ -346,38 +378,9 @@ class analyzer(object):
         coordinates = [list(map(int, coord.split(','))) for coord in content]
         return coordinates
 
-    # def readProb(self, filename):
-    #     '''this function reads the content of a txt file, turn the data into  dictionaries of 
-    #     circles'''
-    #     file = open(filename, 'r') 
-    #     content = file.read().split('\n')[:-1]
-    #     probDict = {}
-    #     counter = 0
-    #     for i in range(len(content))[::6]:
-    #         name = str(counter).zfill(4)
-    #         L1 = list(map(float, content[i+1].replace('[','').replace(']','').split(',')))
-    #         L2 = list(map(float, content[i+3].replace('[','').replace(']','').split(',')))
-    #         L3 = list(map(float, content[i+5].replace('[','').replace(']','').split(',')))
-    #         probDict[name] = [[float(content[i]), L1], [float(content[i+2]), L2], [float(content[i+4]), L3]]
-    #         counter += 1
-    #     return probDict 
-
     def readProb(self, filename):
         '''this function reads the content of a txt file, turn the data into  dictionaries of 
         circles'''
-        # file = open(filename, 'r') 
-        # content = file.read().split('\n')[:-1]
-        # probDict = {}
-        # counter = 0
-        # for i in range(len(content))[::6]:
-        #     name = str(counter).zfill(4)
-        #     L1 = list(map(float, content[i+1].replace('[','').replace(']','').split(',')))
-        #     L2 = list(map(float, content[i+3].replace('[','').replace(']','').split(',')))
-        #     L3 = list(map(float, content[i+5].replace('[','').replace(']','').split(',')))
-        #     probDict[name] = [[float(content[i]), L1], [float(content[i+2]), L2], [float(content[i+4]), L3]]
-        #     counter += 1
-        # return probDict
-
         file = open(filename, 'r')
         raw_content = file.read().split('\n')[:-1]
         raw_chunks = [raw_content[i:i+2] for i in range(0, len(raw_content), 2)]
@@ -436,7 +439,7 @@ class analyzer(object):
         return green_center, red_center   
 
     def Laplacian(self, imagePath):
-        ''' this function calcualte the blurriness factor'''
+        ''' this function calcualte the blurriness factor using variance of the Laplacian'''
         img = cv2.imread(imagePath, 0)
         var = cv2.Laplacian(img, cv2.CV_64F).var()
         return var     
